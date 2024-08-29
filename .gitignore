@@ -1,1 +1,4 @@
 /target
+.git
+/src/config
+/src/logs
