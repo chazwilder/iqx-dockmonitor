@@ -1,5 +1,3 @@
-Certainly, let's craft a compelling README to kickstart your IQX Dock Manager project on GitHub. The README will leverage the insights from the codebase and the context you provided earlier.
-
 ## IQX Dock Manager
 
 **Real-time Insights for Optimized Shipping Performance**
