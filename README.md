@@ -14,6 +14,10 @@ The IQX Dock Manager revolutionizes warehouse shipping operations through real-t
 
 **Ideal for warehouse managers, operations teams, and IT professionals seeking to optimize shipping performance.**
 
+## Dock Door Flow
+
+[View on Eraser![](https://app.eraser.io/workspace/z8rVLln7Kcolc88ZACAk/preview?elements=jkD-WYe5OYUGJx96LZ2UfA&type=embed)](https://app.eraser.io/workspace/z8rVLln7Kcolc88ZACAk?elements=jkD-WYe5OYUGJx96LZ2UfA)
+
 ## Getting Started
 
 ### Prerequisites
@@ -38,7 +42,7 @@ The IQX Dock Manager revolutionizes warehouse shipping operations through real-t
 
 3. Configure the application:
 
-   * Update the configuration files (`default.yaml`, `development.yaml`, `production.yaml`, `queries.yaml`, `dock_doors.yaml`) with your specific settings.
+   * Update the configuration files (`default.yaml`, `rules.yaml`) with your specific settings.
    * Ensure the SQL queries in `queries.yaml` are compatible with your WMS database schema.
 
 4. Build and run the application:
