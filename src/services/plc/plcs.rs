@@ -75,7 +75,7 @@ impl PlcService {
     /// * `Ok(Vec<PlcVal>)`: The collected sensor values
     /// * `Err(DockManagerError)`: If there's an error during sensor polling or task joining
     pub async fn poll_sensors(&self, settings: &Settings) -> DockManagerResult<Vec<PlcVal>> {
-        let plants = settings.plants.clone(); // Clone the plants data
+        let plants = settings.plants.clone();
         let mut all_plc_values = Vec::new();
 
         for plant in plants {
@@ -85,43 +85,46 @@ impl PlcService {
             let max_retries = self.max_retries;
             let plant_id = plant.plant_id.clone();
 
-            let door_futures = doors.into_iter().map(|door| {
+            let door_futures: Vec<_> = doors.into_iter().map(|door| {
                 let sensors = sensors.clone();
                 let reader = Arc::clone(&reader);
                 let plant_id = plant_id.clone();
 
-                task::spawn(async move {
-                    let sensor_futures = sensors.into_iter().map(|sensor| {
+                tokio::spawn(async move {
+                    let sensor_futures: Vec<_> = sensors.into_iter().map(|sensor| {
                         let door_clone = door.clone();
                         let reader = Arc::clone(&reader);
                         let plant_id = plant_id.clone();
 
-                        task::spawn(async move {
-                            Self::read_sensor(
-                                &reader,
-                                max_retries,
-                                &plant_id,
-                                &door_clone.dock_name,
-                                &door_clone.dock_ip,
-                                &sensor.tag_name,
-                                &sensor.address
-                            ).await
-                        })
-                    });
+                        let plant_id = plant_id.clone();
+                        let door_name = door_clone.dock_name.clone();
+                        let door_ip = door_clone.dock_ip.clone();
+                        let tag_name = sensor.tag_name.clone();
+                        let address = sensor.address.clone();
+                        let reader = Arc::clone(&reader);
 
-                    try_join_all(sensor_futures).await
+                        Self::read_sensor(
+                            reader,
+                            max_retries,
+                            plant_id,
+                            door_name,
+                            door_ip,
+                            tag_name,
+                            address
+                        )
+                    }).collect();
+
+                    futures::future::join_all(sensor_futures).await
                 })
-            });
+            }).collect();
 
-            let results = try_join_all(door_futures).await
-                .map_err(|e| DockManagerError::TaskJoinError(e.to_string()))?;
-
-            let plant_plc_values: Result<Vec<_>, _> = results.into_iter()
-                .flatten()
-                .flatten()
-                .collect();
-
-            all_plc_values.extend(plant_plc_values?);
+            let results = futures::future::join_all(door_futures).await;
+            for result in results {
+                match result {
+                    Ok(sensor_values) => all_plc_values.extend(sensor_values.into_iter().filter_map(Result::ok)),
+                    Err(e) => return Err(DockManagerError::TaskJoinError(e.to_string())),
+                }
+            }
         }
 
         Ok(all_plc_values)
@@ -148,19 +151,19 @@ impl PlcService {
     /// * `Ok(PlcVal)`: The read sensor value encapsulated in a `PlcVal` struct
     /// * `Err(DockManagerError)`: If the sensor read fails after all retries
     async fn read_sensor(
-        reader: &PlcReader,
+        reader: Arc<PlcReader>,
         max_retries: u32,
-        plant_id: &str,
-        door_name: &str,
-        door_ip: &str,
-        sensor: &str,
-        plc_tag_address: &str
+        plant_id: String,
+        door_name: String,
+        door_ip: String,
+        sensor: String,
+        plc_tag_address: String
     ) -> DockManagerResult<PlcVal> {
         for attempt in 0..max_retries {
-            let tag = PlcTagFactory::create_tag(door_ip, plc_tag_address, reader.timeout_ms)?;
+            let tag = PlcTagFactory::create_tag(&door_ip, &plc_tag_address, reader.timeout_ms)?;
             match reader.read_tag(tag).await {
                 Ok(value) => {
-                    return     Ok(PlcVal::new(plant_id, door_name, door_ip, sensor, value));
+                    return     Ok(PlcVal::new(&plant_id, &door_name, &door_ip, &sensor, value));
                 }
                 Err(e) if attempt < max_retries - 1 => {
                     tracing::error!("Error reading sensor {} for door {}, attempt {}/{}: {:?}",
