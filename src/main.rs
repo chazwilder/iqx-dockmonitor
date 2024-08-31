@@ -5,16 +5,16 @@ use anyhow::Result;
 use tracing::{error, info};
 use tokio::signal::ctrl_c;
 use tokio::time::interval;
-use iqx_dockmanager::alerting::alert_manager::AlertManager;
-use iqx_dockmanager::analysis::create_default_analyzer;
-use iqx_dockmanager::config::Settings;
-use iqx_dockmanager::controllers::dock_door::DockDoorController;
-use iqx_dockmanager::rules::DynamicRuleManager;
-use iqx_dockmanager::rules::wms_shipment_status_rule::WmsShipmentStatus;
-use iqx_dockmanager::services::db::DatabaseService;
-use iqx_dockmanager::services::plc::PlcService;
-use iqx_dockmanager::state_management::DockDoorStateManager;
-use iqx_dockmanager::utils::logging;
+use iqx_dockmonitor::alerting::alert_manager::AlertManager;
+use iqx_dockmonitor::analysis::create_default_analyzer;
+use iqx_dockmonitor::config::Settings;
+use iqx_dockmonitor::controllers::dock_door::DockDoorController;
+use iqx_dockmonitor::rules::DynamicRuleManager;
+use iqx_dockmonitor::rules::wms_shipment_status_rule::WmsShipmentStatus;
+use iqx_dockmonitor::services::db::DatabaseService;
+use iqx_dockmonitor::services::plc::PlcService;
+use iqx_dockmonitor::state_management::DockDoorStateManager;
+use iqx_dockmonitor::utils::logging;
 
 /// The main entry point of the IQX Dock Manager application
 ///
