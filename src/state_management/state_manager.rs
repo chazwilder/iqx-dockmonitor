@@ -326,35 +326,53 @@ impl DockDoorStateManager {
     /// * `Ok(Vec<DockDoorEvent>)`: The events generated due to sensor updates
     /// * `Err(DockManagerError)`: If there's an error updating a sensor
     async fn internal_update_sensors(&self, sensor_values: Vec<PlcVal>) -> DockManagerResult<Vec<DockDoorEvent>> {
-        let mut doors = self.doors.write().await;
         let mut events = Vec::new();
-        for sensor_value in sensor_values {
-            debug!("Processing sensor value: {:?}", sensor_value);
-            if let Some(door) = doors.get_mut(&sensor_value.door_name) {
+        let doors = self.doors.read().await;
+
+        let update_futures: Vec<_> = sensor_values.into_iter().map(|sensor_value| {
+            let door = doors.get(&sensor_value.door_name).cloned();
+            tokio::spawn(async move {
+                if let Some(mut door) = door {
                     if let Ok(sensor) = door.update_sensor(&sensor_value.sensor_name, Some(sensor_value.value)) {
-                    if sensor.old_value.is_none() {
-                        continue;
-                    }
-                    if sensor.changed {
-                        info!("DockDoor: {} - Sensor state changed for sensor {} from {:?} to {:?}", door.dock_name, sensor_value.sensor_name, sensor.old_value, sensor.new_value);
-                        let event = DockDoorEvent::SensorStateChanged(SensorStateChangedEvent {
-                            dock_name: door.dock_name.clone(),
-                            sensor_name: sensor_value.sensor_name.clone(),
-                            old_value: door.sensors.get(&sensor_value.sensor_name).and_then(|s| s.get_sensor_data().previous_value),
-                            new_value: Some(sensor_value.value),
-                            timestamp: chrono::Local::now().naive_local(),
-                        });
-                        events.push(event);
+                        if sensor.changed {
+                            Some((door.clone(), DockDoorEvent::SensorStateChanged(SensorStateChangedEvent {
+                                dock_name: door.dock_name.clone(),
+                                sensor_name: sensor_value.sensor_name.clone(),
+                                old_value: sensor.old_value,
+                                new_value: sensor.new_value,
+                                timestamp: chrono::Local::now().naive_local(),
+                            })))
+                        } else {
+                            None
+                        }
                     } else {
-                        debug!("No change in sensor state for door {}, sensor {}", door.dock_name, sensor_value.sensor_name);
+                        None
                     }
                 } else {
-                    error!("Failed to update sensor for door {}, sensor {}", door.dock_name, sensor_value.sensor_name);
+                    None
                 }
-            } else {
-                warn!("Door not found: {}", sensor_value.door_name);
+            })
+        }).collect();
+
+        let results = futures::future::join_all(update_futures).await;
+        let mut doors_to_update = Vec::new();
+
+        for result in results {
+            match result {
+                Ok(Some((door, event))) => {
+                    events.push(event);
+                    doors_to_update.push(door);
+                }
+                Ok(None) => {}
+                Err(e) => return Err(DockManagerError::TaskJoinError(e.to_string())),
             }
         }
+
+        let mut doors_write = self.doors.write().await;
+        for door in doors_to_update {
+            doors_write.insert(door.dock_name.clone(), door);
+        }
+
         Ok(events)
     }
 
