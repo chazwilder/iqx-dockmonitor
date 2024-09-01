@@ -315,7 +315,7 @@ impl AnalysisRule for TrailerDockingRule {
                             results.push(AnalysisResult::Alert(alert));
                         }
                     }
-                } else if e.new_value == Some(0) && dock_door.trailer_state == TrailerState::Docked {
+                } else if e.new_value == Some(0) {
                     let log_entry = LogEntry::DockingTime {
                         log_dttm: Local::now().naive_local(),
                         plant: dock_door.plant_id.clone(),
