@@ -8,7 +8,7 @@
 
 //! The core of this module is the `Settings` struct, which encapsulates all the configuration settings required by the application.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use config::{Config, Environment, File};
 use std::{env, fmt};
 use std::path::PathBuf;
@@ -33,6 +33,8 @@ pub struct Settings {
     pub queries: Queries,
     /// Configuration settings for each plant
     pub plants: Vec<PlantSettings>,
+    pub alerts: AlertSettings,
+    pub monitoring: MonitoringSettings,
 }
 
 /// Represents the configuration settings for a specific plant
@@ -258,6 +260,35 @@ pub struct DockPlcTag {
     pub tag_name: String,
     /// The address of the PLC tag in the PLC's memory (e.g., "B9:0/9")
     pub address: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AlertSettings {
+    pub suspended_door: AlertThresholds,
+    pub trailer_pattern: AlertThresholds,
+    pub long_loading_start: AlertThresholds,
+    pub shipment_started_load_not_ready: AlertThresholds,
+    pub trailer_hostage: AlertThresholds,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AlertThresholds {
+    pub initial_threshold: u64,  // in seconds
+    pub repeat_interval: u64,    // in seconds
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct MonitoringSettings {
+    pub check_interval: u64,  // in seconds
+    pub suspended_shipment: MonitoringThresholds,
+    pub trailer_docked_not_started: MonitoringThresholds,
+    pub shipment_started_load_not_ready: MonitoringThresholds,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct MonitoringThresholds {
+    pub alert_threshold: u64,  // in seconds
+    pub repeat_interval: u64,  // in seconds
 }
 
 
