@@ -1,12 +1,13 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use futures::future::join_all;
+use futures::FutureExt;
 use tracing::{info, error};
 
 use crate::config::Settings;
 use crate::services::plc::PlcService;
 use crate::state_management::DockDoorStateManager;
-use crate::errors::{DockManagerError, DockManagerResult};
+use crate::errors::DockManagerResult;
 use crate::event_handling::EventHandler;
 use crate::services::db::DatabaseService;
 use crate::models::{DbInsert, WmsEvent};
@@ -111,24 +112,27 @@ impl DockDoorController {
                 let door_name = door.dock_name.clone();
                 let plant_id = door.plant_id.clone();
                 let db_service = Arc::clone(&db_service);
-                tokio::spawn(async move {
+                async move {
                     let db = db_service.lock().await;
                     db.fetch_wms_events(&plant_id, &shipment_id, &door_name).await
-                })
+                }.boxed()
             })
             .collect();
 
-        let results = futures::future::join_all(futures).await;
+        let results = join_all(futures).await;
+        info!("update_wms_events result: {:?}", results);
         let mut all_wms_events = Vec::new();
 
         for result in results {
             match result {
-                Ok(Ok(events)) => all_wms_events.extend(events),
-                Ok(Err(e)) => return Err(e),
-                Err(e) => return Err(DockManagerError::TaskJoinError(e.to_string())),
+                Ok(events) => {
+                    all_wms_events.extend(events);
+                }
+                Err(e) => {
+                    error!("Error fetching WMS events: {:?}", e);
+                }
             }
         }
-
         let new_db_events = self.state_manager.process_wms_events(all_wms_events).await?;
         self.db_service.lock().await.insert_dock_door_events(new_db_events).await?;
 
