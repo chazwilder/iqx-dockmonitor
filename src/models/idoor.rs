@@ -154,9 +154,9 @@ impl DockDoor {
                 Some(value) => {
                     if old_value != Some(value) {
                         sensor.update_value(Some(value));
-                        Ok(SensorEvaluation { changed: true,old_value, new_value})
+                        Ok(SensorEvaluation { changed: true, old_value, new_value })
                     } else {
-                        Ok(SensorEvaluation { changed:false,old_value, new_value})
+                        Ok(SensorEvaluation { changed: false, old_value, new_value })
                     }
                 },
                 None => {

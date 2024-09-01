@@ -316,30 +316,22 @@ impl AnalysisRule for TrailerDockingRule {
                             results.push(AnalysisResult::Alert(alert));
                         }
                     }
-                } else {
-                    // Only log if the trailer state hasn't been updated yet
-                    if dock_door.trailer_state == TrailerState::Docked {
-                        let log_entry = LogEntry::DockingTime {
-                            log_dttm: Local::now().naive_local(),
-                            plant: dock_door.plant_id.clone(),
-                            door_name: dock_door.dock_name.clone(),
-                            shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                            event_type: "TRAILER_UNDOCKING".to_string(),
-                            success: false,
-                            notes: "Trailer at door, docking successful".to_string(),
-                            severity: 0,
-                            previous_state: Some("TRAILER_DOCKING".to_string()),
-                            previous_state_dttm: Some(e.timestamp),
-                        };
+                } else if e.new_value == Some(0) && dock_door.trailer_state == TrailerState::Docked {
+                    let log_entry = LogEntry::DockingTime {
+                        log_dttm: Local::now().naive_local(),
+                        plant: dock_door.plant_id.clone(),
+                        door_name: dock_door.dock_name.clone(),
+                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
+                        event_type: "TRAILER_UNDOCKING".to_string(),
+                        success: true,
+                        notes: "Trailer undocked successfully".to_string(),
+                        severity: 0,
+                        previous_state: Some("TRAILER_DOCKED".to_string()),
+                        previous_state_dttm: Some(e.timestamp),
+                    };
 
-                        info!("TrailerDockingRule: Generated docking log entry: {:?}", log_entry);
-                        results.push(AnalysisResult::Log(log_entry));
-
-                        if let Some(alert) = self.check_manual_mode_alert(dock_door) {
-                            info!("TrailerDockingRule: Generated manual mode alert");
-                            results.push(AnalysisResult::Alert(alert));
-                        }
-                    }
+                    info!("TrailerDockingRule: Generated undocking log entry: {:?}", log_entry);
+                    results.push(AnalysisResult::Log(log_entry));
                 }
                 results
             },
