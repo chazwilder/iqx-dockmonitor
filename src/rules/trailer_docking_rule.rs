@@ -278,14 +278,13 @@ impl AnalysisRule for TrailerDockingRule {
                 }
             },
             DockDoorEvent::SensorStateChanged(e) if e.sensor_name == "TRAILER_AT_DOOR" => {
-                if matches!(dock_door.loading_status,
-                    LoadingStatus::Completed | LoadingStatus::WaitingForExit) {
-                    info!("TrailerDockingRule: Ignoring event for completed or waiting-for-exit load");
-                    return vec![];
-                }
-
                 let mut results = Vec::new();
                 if e.new_value == Some(1) {
+                    if matches!(dock_door.loading_status,
+                    LoadingStatus::Completed | LoadingStatus::WaitingForExit) {
+                        info!("TrailerDockingRule: Ignoring event for completed or waiting-for-exit load");
+                        return vec![];
+                    }
                     let is_successful = self.is_docking_successful(dock_door);
                     info!("TrailerDockingRule: Docking successful: {}", is_successful);
 
