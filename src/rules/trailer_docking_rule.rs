@@ -1,7 +1,7 @@
 use crate::models::{DockDoor, DockDoorEvent, LoadingStatus, TrailerState};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry, AlertType};
-use chrono::{Local};
-use tracing::{info};
+use chrono::Local;
+use tracing::info;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the `TrailerDockingRule`
@@ -46,17 +46,6 @@ impl TrailerDockingRule {
     }
 
     /// Determines if the docking process was successful based on various conditions
-    ///
-    /// Checks if a shipment is assigned, sensor conditions are met, and the loading status is appropriate
-    /// Logs informational messages about the docking conditions
-    ///
-    /// # Arguments
-    ///
-    /// * `dock_door`: A reference to the `DockDoor` object
-    ///
-    /// # Returns
-    ///
-    /// * `true` if the docking is considered successful, `false` otherwise
     fn is_docking_successful(&self, dock_door: &DockDoor) -> bool {
         let shipment_condition = dock_door.assigned_shipment.current_shipment.is_some();
         if !shipment_condition {
@@ -78,17 +67,6 @@ impl TrailerDockingRule {
     }
 
     /// Checks if the sensor conditions for successful docking are met
-    ///
-    /// Specifically checks the "TRAILER_ANGLE", "TRAILER_CENTERING", "TRAILER_DISTANCE", and "TRAILER_AT_DOOR" sensors
-    /// Logs informational messages about the sensor conditions
-    ///
-    /// # Arguments
-    ///
-    /// * `dock_door`: A reference to the `DockDoor` object
-    ///
-    /// # Returns
-    ///
-    /// * `true` if all sensor conditions are met, `false` otherwise
     fn check_sensor_conditions(&self, dock_door: &DockDoor) -> bool {
         let trailer_angle = dock_door.sensors.get("TRAILER_ANGLE")
             .map(|sensor| sensor.get_sensor_data().current_value == Some(0))
@@ -116,16 +94,6 @@ impl TrailerDockingRule {
     }
 
     /// Checks if the loading status is valid for a successful docking
-    ///
-    /// Considers the `loading_status` and `wms_shipment_status` of the `dock_door`
-    ///
-    /// # Arguments
-    ///
-    /// * `dock_door`: A reference to the `DockDoor` object
-    ///
-    /// # Returns
-    ///
-    /// * `true` if the loading status is valid, `false` otherwise
     fn check_loading_status(&self, dock_door: &DockDoor) -> bool {
         match (&dock_door.loading_status, &dock_door.wms_shipment_status) {
             (LoadingStatus::CSO, _) | (LoadingStatus::WhseInspection, _) => true,
@@ -138,17 +106,6 @@ impl TrailerDockingRule {
     }
 
     /// Checks if a "Manual Mode Alert" should be triggered
-    ///
-    /// This alert is triggered if the trailer is at the door, manual mode is enabled, and other sensor conditions are met
-    ///
-    /// # Arguments
-    ///
-    /// * `dock_door`: A reference to the `DockDoor` object
-    ///
-    /// # Returns
-    ///
-    /// * `Some(AlertType::ManualModeAlert)` if the alert conditions are met
-    /// * `None` otherwise
     fn check_manual_mode_alert(&self, dock_door: &DockDoor) -> Option<AlertType> {
         let trailer_at_door = dock_door.sensors.get("TRAILER_AT_DOOR")
             .map(|sensor| sensor.get_sensor_data().current_value == Some(1))
@@ -174,16 +131,6 @@ impl TrailerDockingRule {
     }
 
     /// Determines the reason for a failed docking attempt
-    ///
-    /// Analyzes the `dock_door`'s state and sensor values to identify the specific reasons why docking was not successful
-    ///
-    /// # Arguments
-    ///
-    /// * `dock_door`: A reference to the `DockDoor` object
-    ///
-    /// # Returns
-    ///
-    /// A string describing the failure reason(s)
     fn get_failure_reason(&self, dock_door: &DockDoor) -> String {
         let mut reasons = Vec::new();
 
@@ -227,38 +174,19 @@ impl TrailerDockingRule {
 }
 
 impl AnalysisRule for TrailerDockingRule {
-    /// Applies the TrailerDockingRule to analyze dock door events
-    ///
-    /// This method handles two types of events:
-    /// 1. `TrailerStateChangedEvent`: If the trailer transitions from Undocked to Docked, it logs a "TRAILER_UNDOCKING" event
-    ///    and checks for a manual mode alert
-    /// 2. `SensorStateChangedEvent`: If the "TRAILER_AT_DOOR" sensor changes, it evaluates if docking was successful
-    ///    and generates a corresponding log entry. It also checks for a manual mode alert
-    ///
-    /// For both event types it logs informational messages about the analysis process
-    ///
-    /// # Arguments
-    ///
-    /// * `dock_door`: A reference to the `DockDoor` object the event is associated with
-    /// * `event`: A reference to the `DockDoorEvent` to be analyzed
-    ///
-    /// # Returns
-    ///
-    /// A vector of `AnalysisResult` containing log entries or alerts generated during the rule application
     fn apply(&self, dock_door: &DockDoor, event: &DockDoorEvent) -> Vec<AnalysisResult> {
         let mut results = Vec::new();
         match event {
             DockDoorEvent::TrailerStateChanged(e) => {
                 if e.new_state == TrailerState::Docked && e.old_state == TrailerState::Undocked {
-
                     let log_entry = LogEntry::DockingTime {
                         log_dttm: Local::now().naive_local(),
                         plant: dock_door.plant_id.clone(),
                         door_name: dock_door.dock_name.clone(),
                         shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                        event_type: "TRAILER_UNDOCKING".to_string(),
+                        event_type: "TRAILER_DOCKING".to_string(),
                         success: false,
-                        notes: "Trailer undocked successfully".to_string(),
+                        notes: "Trailer docked".to_string(),
                         severity: 0,
                         previous_state: Some(format!("{:?}", e.old_state)),
                         previous_state_dttm: Some(e.timestamp),
@@ -271,14 +199,25 @@ impl AnalysisRule for TrailerDockingRule {
                         info!("TrailerDockingRule: Generated manual mode alert");
                         results.push(AnalysisResult::Alert(alert));
                     }
+                } else if e.new_state == TrailerState::Undocked && e.old_state == TrailerState::Docked {
+                    let log_entry = LogEntry::DockingTime {
+                        log_dttm: Local::now().naive_local(),
+                        plant: dock_door.plant_id.clone(),
+                        door_name: dock_door.dock_name.clone(),
+                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
+                        event_type: "TRAILER_UNDOCKING".to_string(),
+                        success: true,
+                        notes: "Trailer undocked successfully".to_string(),
+                        severity: 0,
+                        previous_state: Some(format!("{:?}", e.old_state)),
+                        previous_state_dttm: Some(e.timestamp),
+                    };
 
-                    results
-                } else {
-                    vec![]
+                    info!("TrailerDockingRule: Generated undocking log entry: {:?}", log_entry);
+                    results.push(AnalysisResult::Log(log_entry));
                 }
             },
             DockDoorEvent::SensorStateChanged(e) if e.sensor_name == "TRAILER_AT_DOOR" => {
-                let mut results = Vec::new();
                 if e.new_value == Some(1) {
                     if matches!(dock_door.loading_status,
                     LoadingStatus::Completed | LoadingStatus::WaitingForExit) {
@@ -315,24 +254,8 @@ impl AnalysisRule for TrailerDockingRule {
                             results.push(AnalysisResult::Alert(alert));
                         }
                     }
-                } else if e.new_value == Some(0) {
-                    let log_entry = LogEntry::DockingTime {
-                        log_dttm: Local::now().naive_local(),
-                        plant: dock_door.plant_id.clone(),
-                        door_name: dock_door.dock_name.clone(),
-                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                        event_type: "TRAILER_UNDOCKING".to_string(),
-                        success: true,
-                        notes: "Trailer undocked successfully".to_string(),
-                        severity: 0,
-                        previous_state: Some("TRAILER_DOCKED".to_string()),
-                        previous_state_dttm: Some(e.timestamp),
-                    };
-
-                    info!("TrailerDockingRule: Generated undocking log entry: {:?}", log_entry);
-                    results.push(AnalysisResult::Log(log_entry));
                 }
-                results
+                // Removed the else if e.new_value == Some(0) block to avoid duplicate undocking entries
             },
             DockDoorEvent::SensorStateChanged(e) if e.sensor_name == "RH_DOCK_READY" => {
                 if let Some(sensor) = dock_door.sensors.get(&e.sensor_name) {
@@ -356,9 +279,9 @@ impl AnalysisRule for TrailerDockingRule {
                         results.push(AnalysisResult::Log(log_entry));
                     }
                 }
-                results
             },
-            _ => vec![],
+            _ => {},
         }
+        results
     }
 }
