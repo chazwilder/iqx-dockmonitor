@@ -87,37 +87,30 @@ impl PlcService {
                 let reader = Arc::clone(&self.reader);
                 let plant_id = plant_id.clone();
 
-                tokio::spawn(async move {
+                async move {
                     let sensor_futures: Vec<_> = sensors.into_iter().map(|sensor| {
                         let door_clone = door.clone();
                         let reader = Arc::clone(&reader);
                         let plant_id = plant_id.clone();
-                        let door_name = door_clone.dock_name.clone();
-                        let door_ip = door_clone.dock_ip.clone();
-                        let tag_name = sensor.tag_name.clone();
-                        let address = sensor.address.clone();
 
                         Self::read_sensor(
                             reader,
                             max_retries,
                             plant_id,
-                            door_name,
-                            door_ip,
-                            tag_name,
-                            address
+                            door_clone.dock_name,
+                            door_clone.dock_ip,
+                            sensor.tag_name,
+                            sensor.address
                         )
                     }).collect();
 
                     futures::future::join_all(sensor_futures).await
-                })
+                }
             }).collect();
 
             let results = futures::future::join_all(door_futures).await;
             for result in results {
-                match result {
-                    Ok(sensor_values) => all_plc_values.extend(sensor_values.into_iter().filter_map(Result::ok)),
-                    Err(e) => return Err(DockManagerError::TaskJoinError(e.to_string())),
-                }
+                all_plc_values.extend(result.into_iter().filter_map(Result::ok));
             }
         }
 
