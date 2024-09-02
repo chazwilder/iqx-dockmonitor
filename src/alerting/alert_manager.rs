@@ -60,6 +60,10 @@ pub enum Alert {
         shipment_id: Option<String>,
         duration: Duration,
     },
+    TrailerDockedNotStarted {
+        door_name: String,
+        duration: Duration,
+    },
 }
 
 /// Manages the creation and sending of alerts
@@ -153,11 +157,12 @@ impl AlertManager {
 
         let response = self.client.post(webhook_url)
             .json(&json!({
-                "text": alert_message
-            }))
+            "text": alert_message
+        }))
             .send()
             .await
             .map_err(|e| crate::errors::DockManagerError::ConnectionError(e.to_string()))?;
+
 
         if response.status().is_success() {
             info!("Alert sent successfully: {:?}", alert);
@@ -211,6 +216,10 @@ impl AlertManager {
             Alert::TrailerHostage { door_name, shipment_id, duration } => {
                 format!("🚨 TRAILER HOSTAGE ALERT: Door {} has a trailer hostage for {}. Shipment ID: {}",
                         door_name, self.format_duration(duration), shipment_id.as_deref().unwrap_or("N/A"))
+            },
+            Alert::TrailerDockedNotStarted { door_name, duration } => {
+                format!("⏳ TRAILER DOCKED NOT STARTED: Door {} has had a trailer docked for {} without starting loading",
+                        door_name, self.format_duration(duration))
             },
         }
     }
@@ -310,6 +319,12 @@ impl AlertManager {
                 issue,
                 severity,
                 shipment_id,
+            },
+            AlertType::TrailerDockedNotStarted { door_name, duration } => Alert::TrailerPatternIssue {
+                door_name,
+                issue: format!("Trailer docked but loading not started for {}", self.format_duration(&duration)),
+                severity: 2,
+                shipment_id: None,
             },
         }
     }
