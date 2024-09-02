@@ -1,8 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use futures::future::join_all;
-use futures::FutureExt;
-use tracing::{info, error};
+use tracing::info;
 
 use crate::config::Settings;
 use crate::services::plc::PlcService;

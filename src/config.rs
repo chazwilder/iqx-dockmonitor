@@ -83,16 +83,16 @@ impl DatabaseSettings {
     ///
     /// A `Secret<String>` containing the constructed connection string. The connection string is kept secret for security reasons
     pub fn connection_string(&self) -> Secret<String> {
-        let mut connection_string= String::new();
         if self.username.is_none() | self.password.is_none() && self.win_auth {
-            connection_string = format!(
+            let connection_string = format!(
                 "mssql://{}:{}/{}",
                 self.host,
                 self.port,
                 self.database_name
             );
+            Secret::new(connection_string)
         } else {
-            connection_string = format!(
+            let connection_string = format!(
                 "mssql://{}:{}@{}:{}/{}",
                 self.username.clone().unwrap(),
                 self.password.clone().unwrap().expose_secret(),
@@ -100,9 +100,8 @@ impl DatabaseSettings {
                 self.port,
                 self.database_name
             );
+            Secret::new(connection_string)
         }
-        info!("{:?}", connection_string);
-        Secret::new(connection_string)
     }
 }
 
@@ -140,16 +139,16 @@ impl LgvWmsDatabaseSettings {
     ///
     /// A `Secret<String>` containing the constructed connection string. The connection string is kept secret for security reasons
     pub fn connection_string(&self) -> Secret<String> {
-        let mut connection_string= String::new();
         if self.username.is_none() | self.password.is_none() && self.win_auth {
-            connection_string = format!(
+            let connection_string = format!(
                 "mssql://{}:{}/{}",
                 self.host,
                 self.port,
                 self.database_name
             );
+            Secret::new(connection_string)
         } else {
-            connection_string = format!(
+            let connection_string = format!(
                 "mssql://{}:{}@{}:{}/{}",
                 self.username.clone().unwrap(),
                 self.password.clone().unwrap().expose_secret(),
@@ -157,9 +156,8 @@ impl LgvWmsDatabaseSettings {
                 self.port,
                 self.database_name
             );
+            Secret::new(connection_string)
         }
-        info!("{:?}", connection_string);
-        Secret::new(connection_string)
     }
 }
 

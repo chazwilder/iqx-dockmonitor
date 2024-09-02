@@ -1,6 +1,7 @@
 use crate::models::{DockDoor, DockDoorEvent, TrailerState};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use crate::analysis::LogEntry;
 
 /// Configuration for the `NewShipmentPreviousTrailerPresentRule`
@@ -18,8 +19,10 @@ pub struct NewShipmentPreviousTrailerPresentRule {
 
 impl NewShipmentPreviousTrailerPresentRule {
     /// Creates a new `NewShipmentPreviousTrailerPresentRule` with the given configuration
-    pub fn new(config: NewShipmentPreviousTrailerPresentRuleConfig) -> Self {
-        NewShipmentPreviousTrailerPresentRule { config }
+    pub fn new(config: Value) -> Self {
+        let parsed_config: NewShipmentPreviousTrailerPresentRuleConfig = serde_json::from_value(config)
+            .expect("Failed to parse NewShipmentPreviousTrailerPresentRule configuration");
+        NewShipmentPreviousTrailerPresentRule { config: parsed_config }
     }
 
     /// Checks if the previous shipment associated with the dock door is considered complete

@@ -5,6 +5,7 @@ use derive_more::Constructor;
 use crate::models::{DockDoor, DockDoorEvent};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType, LogEntry};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Configuration for the `ManualInterventionRule`
 #[derive(Debug, Deserialize, Serialize, Constructor)]
@@ -28,9 +29,11 @@ pub struct ManualInterventionRule {
 
 impl ManualInterventionRule {
     /// Creates a new `ManualInterventionRule` with the given configuration
-    pub fn new(config: ManualInterventionRuleConfig) -> Self {
+    pub fn new(config: Value) -> Self {
+        let parsed_config: ManualInterventionRuleConfig = serde_json::from_value(config)
+            .expect("Failed to parse ManualInterventionRule configuration");
         ManualInterventionRule {
-            config,
+            config: parsed_config,
             monitoring: Arc::new(Mutex::new(HashMap::new())),
         }
     }

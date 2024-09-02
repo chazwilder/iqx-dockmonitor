@@ -59,7 +59,7 @@ impl DynamicRuleManager {
         configs.into_iter()
             .map(|config| {
                 info!("Creating rule: {}", config.rule_type);
-                self.rule_factory.create_rule(&config)
+                self.rule_factory.create_rule(&config.rule_type, &config.parameters)
             })
             .collect()
     }
