@@ -53,7 +53,7 @@ async fn run() -> Result<()> {
     let _guard = logging::init_logger(log_file_path)?;
 
     let plc_service = PlcService::new();
-    let alert_manager = AlertManager::new(Arc::new(settings.clone()));
+    let _alert_manager = AlertManager::new(Arc::new(settings.clone()));
     let db_service = DatabaseService::new(
         Arc::new(settings.clone())
     ).await?;

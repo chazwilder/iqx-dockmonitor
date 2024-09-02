@@ -478,4 +478,13 @@ impl DockDoor {
 
         Ok(events)
     }
+
+    pub fn check_loading_readiness(&self) -> bool {
+        // Implement the logic to check if the dock is ready for loading
+        // This is an example, adjust according to your specific requirements
+        self.door_position == DoorPosition::Open &&
+            self.dock_lock_state == DockLockState::Engaged &&
+            self.leveler_position == LevelerPosition::Extended &&
+            self.fault_state == FaultState::NoFault
+    }
 }

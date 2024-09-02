@@ -50,6 +50,7 @@ impl TrailerDockingRule {
 
     /// Determines if the docking process was successful based on various conditions
     fn is_docking_successful(&self, dock_door: &DockDoor) -> bool {
+        let _ = self.config;
         let shipment_condition = dock_door.assigned_shipment.current_shipment.is_some();
         if !shipment_condition {
             return false;
