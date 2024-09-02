@@ -1,6 +1,4 @@
 use std::sync::Arc;
-use tokio::task;
-use futures::future::try_join_all;
 use crate::models::PlcVal;
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::config::{Settings};
@@ -81,7 +79,6 @@ impl PlcService {
         for plant in plants {
             let doors = plant.dock_doors.dock_door_config.clone();
             let sensors = plant.dock_doors.dock_plc_tags.clone();
-            let reader = Arc::clone(&self.reader);
             let max_retries = self.max_retries;
             let plant_id = plant.plant_id.clone();
 
