@@ -3,6 +3,7 @@ use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry, 
 use chrono::Local;
 use tracing::info;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Configuration for the `TrailerDockingRule`
 #[derive(Debug, Deserialize, Serialize)]
@@ -41,8 +42,10 @@ pub struct TrailerDockingRule {
 
 impl TrailerDockingRule {
     /// Creates a new `TrailerDockingRule` with the given configuration
-    pub fn new(config: TrailerDockingRuleConfig) -> Self {
-        TrailerDockingRule { config }
+    pub fn new(config: Value) -> Self {
+        let parsed_config: TrailerDockingRuleConfig = serde_json::from_value(config)
+            .expect("Failed to parse TrailerDockingRule configuration");
+        TrailerDockingRule { config: parsed_config }
     }
 
     /// Determines if the docking process was successful based on various conditions
