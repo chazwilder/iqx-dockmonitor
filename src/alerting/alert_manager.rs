@@ -157,11 +157,12 @@ impl AlertManager {
 
         let response = self.client.post(webhook_url)
             .json(&json!({
-                "text": alert_message
-            }))
+            "text": alert_message
+        }))
             .send()
             .await
             .map_err(|e| crate::errors::DockManagerError::ConnectionError(e.to_string()))?;
+
 
         if response.status().is_success() {
             info!("Alert sent successfully: {:?}", alert);
