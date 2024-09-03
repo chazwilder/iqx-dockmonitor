@@ -1,7 +1,8 @@
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tracing::{info, error};
-use futures::{stream, StreamExt};
+use futures::future::join_all;
+use tokio::time::timeout;
 use crate::models::PlcVal;
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::config::Settings;
@@ -82,19 +83,19 @@ impl PlcService {
 
             info!("Starting sensor polling for plant {} with {} doors", plant_index, plant.dock_doors.dock_door_config.len());
 
-            let sensor_futures = plant.dock_doors.dock_door_config.iter().flat_map(|door| {
-                plant.dock_doors.dock_plc_tags.iter().map({
-                    let value = plant_id.clone();
-                    move |sensor| {
-                    let reader = Arc::clone(&self.reader);
-                    let max_retries = self.max_retries;
-                    let plant_id = value.clone();
-                    let door_name = door.dock_name.clone();
-                    let door_ip = door.dock_ip.clone();
-                    let sensor_name = sensor.tag_name.clone();
-                    let address = sensor.address.clone();
+            let sensor_futures: Vec<_> = plant.dock_doors.dock_door_config.iter()
+                .flat_map(|door| {
+                    plant.dock_doors.dock_plc_tags.iter().map({
+                        let plant_pid = plant_id.clone();
+                        move |sensor| {
+                        let reader = Arc::clone(&self.reader);
+                        let max_retries = self.max_retries;
+                        let plant_id = plant_pid.clone();
+                        let door_name = door.dock_name.clone();
+                        let door_ip = door.dock_ip.clone();
+                        let sensor_name = sensor.tag_name.clone();
+                        let address = sensor.address.clone();
 
-                    async move {
                         Self::read_sensor(
                             reader,
                             max_retries,
@@ -103,18 +104,13 @@ impl PlcService {
                             door_ip,
                             sensor_name,
                             address
-                        ).await
-                    }
-                }})
-            });
+                        )
+                    }})
+                })
+                .collect();
 
-            let plant_values: Vec<_> = stream::iter(sensor_futures)
-                .buffer_unordered(200)
-                .filter_map(|result| async move { result.ok() })
-                .collect()
-                .await;
-
-            all_plc_values.extend(plant_values);
+            let results = join_all(sensor_futures).await;
+            all_plc_values.extend(results.into_iter().filter_map(Result::ok));
 
             info!("Completed sensor polling for plant {} in {:?}", plant_index, plant_start.elapsed());
         }
@@ -155,18 +151,22 @@ impl PlcService {
         let start = Instant::now();
         for attempt in 0..max_retries {
             let tag = PlcTagFactory::create_tag(&door_ip, &plc_tag_address, reader.timeout_ms)?;
-            match reader.read_tag(tag).await {
-                Ok(value) => {
+            match timeout(Duration::from_secs(5), reader.read_tag(tag)).await {
+                Ok(Ok(value)) => {
                     info!("Successfully read sensor {} for door {} in {:?}", sensor, door_name, start.elapsed());
                     return Ok(PlcVal::new(&plant_id, &door_name, &door_ip, &sensor, value));
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     error!("Error reading sensor {} for door {} on attempt {}/{}: {:?}",
                            sensor, door_name, attempt + 1, max_retries, e);
-                    if attempt < max_retries - 1 {
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    }
                 }
+                Err(_) => {
+                    error!("Timeout reading sensor {} for door {} on attempt {}/{}",
+                           sensor, door_name, attempt + 1, max_retries);
+                }
+            }
+            if attempt < max_retries - 1 {
+                tokio::time::sleep(Duration::from_millis(100)).await;
             }
         }
         Err(DockManagerError::PlcError(format!("Failed to read sensor {} after {} attempts", sensor, max_retries)))
