@@ -155,7 +155,6 @@ impl PlcService {
             let tag = PlcTagFactory::create_tag(&door_ip, &plc_tag_address, reader.timeout_ms)?;
             match reader.read_tag(tag).await {
                 Ok(value) => {
-                    info!("Successfully read sensor {} for door {} in {:?}", sensor, door_name, start.elapsed());
                     return Ok(PlcVal::new(&plant_id, &door_name, &door_ip, &sensor, value));
                 }
                 Err(e) => {
