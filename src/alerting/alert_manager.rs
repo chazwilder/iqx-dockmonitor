@@ -200,7 +200,7 @@ impl AlertManager {
     /// # Returns
     ///
     /// A formatted alert message as a String
-    fn format_alert_message(&self, alert: &Alert) -> String {
+    pub fn format_alert_message(&self, alert: &Alert) -> String {
         match alert {
             Alert::SuspendedDoor { door_name, duration, shipment_id } => {
                 format!("🚨 SUSPENDED DOOR ALERT: Door {} has been suspended for {}. Shipment ID: {}",
@@ -260,7 +260,7 @@ impl AlertManager {
     /// # Returns
     ///
     /// A formatted duration string
-    fn format_duration(&self, duration: &Duration) -> String {
+    pub fn format_duration(&self, duration: &Duration) -> String {
         let total_seconds = duration.num_seconds();
         let hours = total_seconds / 3600;
         let minutes = (total_seconds % 3600) / 60;
@@ -284,7 +284,7 @@ impl AlertManager {
     /// # Returns
     ///
     /// The corresponding Alert
-    fn convert_alert_type(&self, alert_type: AlertType) -> Alert {
+    pub fn convert_alert_type(&self, alert_type: AlertType) -> Alert {
         match alert_type {
             AlertType::LongDockingTime(duration) => Alert::TrailerPatternIssue {
                 door_name: "Unknown".to_string(),
