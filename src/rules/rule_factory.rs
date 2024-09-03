@@ -2,7 +2,7 @@ use std::sync::Arc;
 use anyhow::{Result};
 use serde_json::Value;
 use crate::analysis::context_analyzer::AnalysisRule;
-use crate::rules::{suspended_door_rule::{SuspendedDoorRule}, long_loading_start_rule::{LongLoadingStartRule}, trailer_hostage_rule::{TrailerHostageRule}, shipment_started_load_not_ready_rule::{ShipmentStartedLoadNotReadyRule}, trailer_pattern_rule::{TrailerPatternRule}, trailer_docking_rule::{TrailerDockingRule}, manual_intervention_rule::{ManualInterventionRule}, NewShipmentPreviousTrailerPresentRule};
+use crate::rules::{suspended_door_rule::{SuspendedDoorRule}, long_loading_start_rule::{LongLoadingStartRule}, trailer_hostage_rule::{TrailerHostageRule}, shipment_started_load_not_ready_rule::{ShipmentStartedLoadNotReadyRule}, trailer_pattern_rule::{TrailerPatternRule}, trailer_docking_rule::{TrailerDockingRule}, manual_intervention_rule::{ManualInterventionRule}, NewShipmentPreviousTrailerPresentRule, TrailerUndockingRule};
 
 /// A factory for creating analysis rules based on their configuration
 #[derive(Debug, Default)]
@@ -35,6 +35,7 @@ impl RuleFactory {
             "TrailerDockingRule" => self.create_trailer_docking_rule(config),
             "NewShipmentPreviousTrailerPresentRule" => self.create_new_shipment_previous_trailer_present_rule(config),
             "ManualInterventionRule" => self.create_manual_intervention_rule(config),
+            "TrailerUndockingRule" => self.create_trailer_undocking_rule(config),
             _ => Err(anyhow::anyhow!("Unknown rule type: {}", rule_type)),
         }
     }
@@ -77,5 +78,9 @@ impl RuleFactory {
     /// Creates a `ManualInterventionRule` based on the provided configuration
     fn create_manual_intervention_rule(&self, config: &Value) -> Result<Arc<dyn AnalysisRule>> {
         Ok(Arc::new(ManualInterventionRule::new(config.clone())))
+    }
+
+    fn create_trailer_undocking_rule(&self, _config: &Value) -> Result<Arc<dyn AnalysisRule>> {
+        Ok(Arc::new(TrailerUndockingRule))
     }
 }

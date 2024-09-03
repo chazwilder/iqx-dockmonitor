@@ -267,6 +267,8 @@ pub struct AlertSettings {
     pub long_loading_start: AlertThresholds,
     pub shipment_started_load_not_ready: AlertThresholds,
     pub trailer_hostage: AlertThresholds,
+    pub trailer_docked: AlertThresholds,
+    pub dock_ready: AlertThresholds,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

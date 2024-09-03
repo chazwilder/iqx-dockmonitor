@@ -64,6 +64,16 @@ pub enum Alert {
         door_name: String,
         duration: Duration,
     },
+    TrailerDocked {
+        door_name: String,
+        shipment_id: Option<String>,
+        timestamp: NaiveDateTime,
+    },
+    DockReady {
+        door_name: String,
+        shipment_id: Option<String>,
+        timestamp: NaiveDateTime,
+    },
 }
 
 /// Manages the creation and sending of alerts
@@ -124,6 +134,14 @@ impl AlertManager {
             Alert::TrailerHostage { door_name, .. } => (
                 format!("trailer_hostage_{}", door_name),
                 self.settings.alerts.trailer_hostage.repeat_interval,
+            ),
+            Alert::TrailerDocked { door_name, .. } => (
+                format!("trailer_docked_{}", door_name),
+                self.settings.alerts.trailer_docked.repeat_interval,
+            ),
+            Alert::DockReady { door_name, .. } => (
+                format!("dock_ready_{}", door_name),
+                self.settings.alerts.dock_ready.repeat_interval,
             ),
             // Add other cases as needed
             _ => (
@@ -221,6 +239,15 @@ impl AlertManager {
                 format!("⏳ TRAILER DOCKED NOT STARTED: Door {} has had a trailer docked for {} without starting loading",
                         door_name, self.format_duration(duration))
             },
+            Alert::TrailerDocked { door_name, shipment_id, timestamp } => {
+                format!("🚛 TRAILER DOCKED: Door {} - Shipment {} docked successfully at {}",
+                        door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp)
+            },
+            Alert::DockReady { door_name, shipment_id, timestamp } => {
+                format!("✅ DOCK READY: Door {} - Shipment {} is ready for loading at {}",
+                        door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp)
+            },
+
         }
     }
 
@@ -325,6 +352,16 @@ impl AlertManager {
                 issue: format!("Trailer docked but loading not started for {}", self.format_duration(&duration)),
                 severity: 2,
                 shipment_id: None,
+            },
+            AlertType::TrailerDocked { door_name, shipment_id, timestamp } => Alert::TrailerDocked {
+                door_name,
+                shipment_id,
+                timestamp,
+            },
+            AlertType::DockReady { door_name, shipment_id, timestamp } => Alert::DockReady {
+                door_name,
+                shipment_id,
+                timestamp,
             },
         }
     }

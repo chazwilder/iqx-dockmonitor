@@ -150,7 +150,6 @@ impl PlcService {
         sensor: String,
         plc_tag_address: String
     ) -> DockManagerResult<PlcVal> {
-        let start = Instant::now();
         for attempt in 0..max_retries {
             let tag = PlcTagFactory::create_tag(&door_ip, &plc_tag_address, reader.timeout_ms)?;
             match reader.read_tag(tag).await {
