@@ -88,23 +88,16 @@ impl PlcReader {
     /// let value = reader.read_tag(tag).await?;
     /// println!("Read value: {}", value);
     /// ```
-    pub async fn read_tag(&self, tag: RawTag) -> Result<u8, DockManagerError> {
-        let timeout_duration = Duration::from_millis(self.timeout_ms);
-        let timeout_ms = self.timeout_ms;
+    pub async fn read_tag(&self, tag: plctag::RawTag) -> Result<u8, DockManagerError> {
+        let timeout = Duration::from_millis(self.timeout_ms);
 
-        let result = timeout(
-            timeout_duration,
-            task::spawn_blocking(move || {
-                tag.read(timeout_ms as u32);
-                tag.get_u8(0)
-            })
-        ).await;
-
-        match result {
-            Ok(Ok(Ok(value))) => Ok(value),
-            Ok(Ok(Err(e))) => Err(DockManagerError::PlcError(format!("Failed to read tag value: {}", e))),
-            Ok(Err(e)) => Err(DockManagerError::PlcError(format!("Task panicked: {}", e))),
-            Err(_) => Err(DockManagerError::PlcError("PLC read operation timed out".to_string())),
-        }
+        tokio::time::timeout(timeout, task::spawn_blocking(move || {
+            tag.read(self.timeout_ms as u32);
+            tag.get_u8(0)
+        }))
+            .await
+            .map_err(|_| DockManagerError::PlcError("PLC read operation timed out".to_string()))?
+            .map_err(|e| DockManagerError::PlcError(format!("Task join error: {}", e)))?
+            .map_err(|e| DockManagerError::PlcError(format!("Failed to read tag value: {}", e)))
     }
 }

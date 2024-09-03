@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{info, error};
-use futures::future;
 use futures::future::join_all;
+use futures::{stream, StreamExt};
 use crate::models::PlcVal;
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::config::Settings;
@@ -87,8 +87,8 @@ impl PlcService {
 
             info!("Starting sensor polling for plant {} with {} doors", plant_index, doors.len());
 
-            let sensor_futures: Vec<_> = doors.iter().flat_map(|door| {
-                sensors.iter().map(|sensor| {
+            let sensor_futures = stream::iter(doors.into_iter().flat_map(|door| {
+                sensors.iter().map(move |sensor| {
                     let reader = Arc::clone(&self.reader);
                     let plant_id = plant_id.clone();
                     let door_name = door.dock_name.clone();
@@ -96,20 +96,24 @@ impl PlcService {
                     let sensor_name = sensor.tag_name.clone();
                     let address = sensor.address.clone();
 
-                    Self::read_sensor(
-                        reader,
-                        max_retries,
-                        plant_id,
-                        door_name,
-                        door_ip,
-                        sensor_name,
-                        address
-                    )
+                    async move {
+                        Self::read_sensor(
+                            reader,
+                            max_retries,
+                            plant_id,
+                            door_name,
+                            door_ip,
+                            sensor_name,
+                            address
+                        ).await
+                    }
                 })
-            }).collect();
+            }))
+                .buffer_unordered(400) // Adjust this value based on your system's capabilities
+                .collect::<Vec<_>>()
+                .await;
 
-            let results = join_all(sensor_futures).await;
-            all_plc_values.extend(results.into_iter().filter_map(Result::ok));
+            all_plc_values.extend(sensor_futures.into_iter().filter_map(Result::ok));
 
             info!("Completed sensor polling for plant {} in {:?}", plant_index, plant_start.elapsed());
         }
@@ -155,12 +159,13 @@ impl PlcService {
                     info!("Successfully read sensor {} for door {} in {:?}", sensor, door_name, start.elapsed());
                     return Ok(PlcVal::new(&plant_id, &door_name, &door_ip, &sensor, value));
                 }
-                Err(e) if attempt < max_retries - 1 => {
-                    error!("Error reading sensor {} for door {}, attempt {}/{}: {:?}",
+                Err(e) => {
+                    error!("Error reading sensor {} for door {} on attempt {}/{}: {:?}",
                            sensor, door_name, attempt + 1, max_retries, e);
-                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    if attempt < max_retries - 1 {
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    }
                 }
-                Err(e) => return Err(e),
             }
         }
         Err(DockManagerError::PlcError(format!("Failed to read sensor {} after {} attempts", sensor, max_retries)))
