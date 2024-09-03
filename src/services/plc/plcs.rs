@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tracing::{info, error};
 use futures::future;
+use futures::future::join_all;
 use crate::models::PlcVal;
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::config::Settings;
@@ -86,37 +87,29 @@ impl PlcService {
 
             info!("Starting sensor polling for plant {} with {} doors", plant_index, doors.len());
 
-            let door_futures: Vec<_> = doors.into_iter().map(|door| {
-                let sensors = sensors.clone();
-                let reader = Arc::clone(&self.reader);
-                let plant_id = plant_id.clone();
+            let sensor_futures: Vec<_> = doors.iter().flat_map(|door| {
+                sensors.iter().map(|sensor| {
+                    let reader = Arc::clone(&self.reader);
+                    let plant_id = plant_id.clone();
+                    let door_name = door.dock_name.clone();
+                    let door_ip = door.dock_ip.clone();
+                    let sensor_name = sensor.tag_name.clone();
+                    let address = sensor.address.clone();
 
-                async move {
-                    let sensor_futures: Vec<_> = sensors.into_iter().map(|sensor| {
-                        let door_clone = door.clone();
-                        let reader = Arc::clone(&reader);
-                        let plant_id = plant_id.clone();
-
-                        Self::read_sensor(
-                            reader,
-                            max_retries,
-                            plant_id,
-                            door_clone.dock_name,
-                            door_clone.dock_ip,
-                            sensor.tag_name,
-                            sensor.address
-                        )
-                    }).collect();
-
-                    future::join_all(sensor_futures).await
-                }
+                    Self::read_sensor(
+                        reader,
+                        max_retries,
+                        plant_id,
+                        door_name,
+                        door_ip,
+                        sensor_name,
+                        address
+                    )
+                })
             }).collect();
 
-            let results = future::join_all(door_futures).await;
-
-            for result in results {
-                all_plc_values.extend(result.into_iter().filter_map(Result::ok));
-            }
+            let results = join_all(sensor_futures).await;
+            all_plc_values.extend(results.into_iter().filter_map(Result::ok));
 
             info!("Completed sensor polling for plant {} in {:?}", plant_index, plant_start.elapsed());
         }
