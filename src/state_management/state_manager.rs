@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc::{channel, Receiver};
 use tracing::{debug, error, info, warn};
+use crate::alerting::alert_manager::AlertManager;
 use crate::config::Settings;
 use crate::analysis::ContextAnalyzer;
 use crate::errors::{DockManagerError, DockManagerResult};
@@ -66,7 +67,11 @@ impl DockDoorStateManager {
     /// # Returns
     ///
     /// A tuple containing the `DockDoorStateManager` and its associated `EventHandler`
-    pub fn new(settings: &Settings, context_analyzer: ContextAnalyzer) -> (Self, EventHandler) {
+    pub fn new(
+        settings: &Settings,
+        context_analyzer: ContextAnalyzer,
+        alert_manager: Arc<AlertManager>,
+    ) -> (Self, EventHandler) {
         let (command_sender, command_receiver) = channel(100);
         let (event_sender, event_receiver) = channel(MAX_QUEUE_SIZE);
 
@@ -96,6 +101,7 @@ impl DockDoorStateManager {
             event_receiver,
             Arc::new(manager.clone()),
             Arc::new(context_analyzer),
+            alert_manager.clone()
         );
 
         tokio::spawn(manager.clone().run(command_receiver));

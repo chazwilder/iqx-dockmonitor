@@ -53,7 +53,7 @@ async fn run() -> Result<()> {
     let _guard = logging::init_logger(log_file_path)?;
 
     let plc_service = PlcService::new();
-    let _alert_manager = AlertManager::new(Arc::new(settings.clone()));
+    let alert_manager = Arc::new(AlertManager::new(Arc::new(settings.clone())));
     let db_service = DatabaseService::new(
         Arc::new(settings.clone())
     ).await?;
@@ -66,7 +66,11 @@ async fn run() -> Result<()> {
     }
     context_analyzer.add_rule(Arc::new(WmsShipmentStatus));
 
-    let (state_manager, event_handler) = DockDoorStateManager::new(&settings, context_analyzer);
+    let (state_manager, event_handler) = DockDoorStateManager::new(
+        &settings,
+        context_analyzer,
+        Arc::clone(&alert_manager)
+    );
     let state_manager = Arc::new(state_manager);
     let event_handler = Arc::new(event_handler);
 
