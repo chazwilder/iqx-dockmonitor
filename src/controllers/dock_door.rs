@@ -67,22 +67,35 @@ impl DockDoorController {
     /// * `Ok(())` if the polling cycle completes successfully
     /// * `Err(DockManagerError)` if any errors occur during polling, state updates, event handling, or database insertion
     pub async fn run_polling_cycle(&self) -> DockManagerResult<()> {
+        let start = std::time::Instant::now();
+        info!("Starting PLC value polling...");
         let plc_values = self.plc_service.poll_sensors(&self.settings).await?;
-        let events = self.state_manager.update_sensors(plc_values).await?;
+        info!("PLC value polling completed in {:?}", start.elapsed());
 
+        let update_start = std::time::Instant::now();
+        info!("Starting sensor update...");
+        let events = self.state_manager.update_sensors(plc_values).await?;
+        info!("Sensor update completed in {:?}", update_start.elapsed());
+
+        let event_start = std::time::Instant::now();
+        info!("Processing {} events...", events.len());
         let mut db_events = Vec::new();
         for event in events {
             let new_db_events = self.event_handler.send_event(event).await?;
             db_events.extend(new_db_events);
         }
+        info!("Event processing completed in {:?}", event_start.elapsed());
 
         if !db_events.is_empty() {
+            let db_start = std::time::Instant::now();
             info!("Inserting {} DB events", db_events.len());
             self.db_service.lock().await.insert_dock_door_events(db_events).await?;
+            info!("DB insertion completed in {:?}", db_start.elapsed());
         } else {
             info!("No DB events to insert");
         }
 
+        info!("Full polling cycle completed in {:?}", start.elapsed());
         Ok(())
     }
 

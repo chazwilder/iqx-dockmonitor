@@ -248,9 +248,12 @@ impl DockDoorStateManager {
     /// * `Ok(Vec<DockDoorEvent>)`: The events generated due to sensor updates
     /// * `Err(DockManagerError)`: If there's an error sending or receiving the command or processing the sensor updates
     pub async fn update_sensors(&self, sensor_values: Vec<PlcVal>) -> DockManagerResult<Vec<DockDoorEvent>> {
+        let start = std::time::Instant::now();
         let (tx, rx) = oneshot::channel();
         self.command_sender.send(StateManagerCommand::UpdateSensors(sensor_values, tx)).await?;
-        rx.await?
+        let result = rx.await?;
+        info!("StateManager update_sensors completed in {:?}", start.elapsed());
+        result
     }
 
     /// Updates the state of dock doors based on WMS data and returns generated events

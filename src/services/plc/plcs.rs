@@ -1,11 +1,12 @@
 use std::sync::Arc;
+use std::time::Instant;
+use tracing::{info, error};
+use futures::future;
 use crate::models::PlcVal;
 use crate::errors::{DockManagerError, DockManagerResult};
-use crate::config::{Settings};
+use crate::config::Settings;
 use crate::services::plc::plc_tag_factory::PlcTagFactory;
 use crate::services::plc::plc_reader::PlcReader;
-
-
 
 /// # PlcService
 ///
@@ -37,7 +38,6 @@ pub struct PlcService {
 }
 
 impl PlcService {
-    //noinspection RsUnresolvedPath
     /// Creates a new instance of `PlcService`.
     ///
     /// This method initializes a new `PlcService` with default configurations:
@@ -55,8 +55,8 @@ impl PlcService {
     /// ```
     pub fn new() -> Self {
         Self {
-        reader: Arc::new(PlcReader::new(5000)),
-        max_retries: 3,
+            reader: Arc::new(PlcReader::new(5000)),
+            max_retries: 3,
         }
     }
 
@@ -73,14 +73,18 @@ impl PlcService {
     /// * `Ok(Vec<PlcVal>)`: The collected sensor values
     /// * `Err(DockManagerError)`: If there's an error during sensor polling or task joining
     pub async fn poll_sensors(&self, settings: &Settings) -> DockManagerResult<Vec<PlcVal>> {
+        let start = Instant::now();
         let plants = settings.plants.clone();
         let mut all_plc_values = Vec::new();
 
-        for plant in plants {
+        for (plant_index, plant) in plants.iter().enumerate() {
+            let plant_start = Instant::now();
             let doors = plant.dock_doors.dock_door_config.clone();
             let sensors = plant.dock_doors.dock_plc_tags.clone();
             let max_retries = self.max_retries;
             let plant_id = plant.plant_id.clone();
+
+            info!("Starting sensor polling for plant {} with {} doors", plant_index, doors.len());
 
             let door_futures: Vec<_> = doors.into_iter().map(|door| {
                 let sensors = sensors.clone();
@@ -104,16 +108,20 @@ impl PlcService {
                         )
                     }).collect();
 
-                    futures::future::join_all(sensor_futures).await
+                    future::join_all(sensor_futures).await
                 }
             }).collect();
 
-            let results = futures::future::join_all(door_futures).await;
+            let results = future::join_all(door_futures).await;
+
             for result in results {
                 all_plc_values.extend(result.into_iter().filter_map(Result::ok));
             }
+
+            info!("Completed sensor polling for plant {} in {:?}", plant_index, plant_start.elapsed());
         }
 
+        info!("Completed polling all sensors in {:?}", start.elapsed());
         Ok(all_plc_values)
     }
 
@@ -146,14 +154,16 @@ impl PlcService {
         sensor: String,
         plc_tag_address: String
     ) -> DockManagerResult<PlcVal> {
+        let start = Instant::now();
         for attempt in 0..max_retries {
             let tag = PlcTagFactory::create_tag(&door_ip, &plc_tag_address, reader.timeout_ms)?;
             match reader.read_tag(tag).await {
                 Ok(value) => {
-                    return     Ok(PlcVal::new(&plant_id, &door_name, &door_ip, &sensor, value));
+                    info!("Successfully read sensor {} for door {} in {:?}", sensor, door_name, start.elapsed());
+                    return Ok(PlcVal::new(&plant_id, &door_name, &door_ip, &sensor, value));
                 }
                 Err(e) if attempt < max_retries - 1 => {
-                    tracing::error!("Error reading sensor {} for door {}, attempt {}/{}: {:?}",
+                    error!("Error reading sensor {} for door {}, attempt {}/{}: {:?}",
                            sensor, door_name, attempt + 1, max_retries, e);
                     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 }
