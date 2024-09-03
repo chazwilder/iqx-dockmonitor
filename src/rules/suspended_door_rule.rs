@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use chrono::{NaiveDateTime, Local, Duration, Utc, TimeZone};
+use chrono::{NaiveDateTime, Local, Duration};
 use serde::{Deserialize, Serialize};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType, LogEntry};
 use crate::models::{DockDoor, DockDoorEvent, LoadingStatus};
@@ -60,7 +60,7 @@ impl AnalysisRule for SuspendedDoorRule {
 
         match event {
             DockDoorEvent::LoadingStatusChanged(e) if e.new_status == LoadingStatus::Suspended => {
-                let suspension_duration = Local::now().signed_duration_since(Utc.from_utc_datetime(&e.timestamp));
+                let suspension_duration = Local::now().naive_local().signed_duration_since(e.timestamp);
 
                 if suspension_duration > Duration::seconds(self.config.alert_threshold as i64) {
                     if self.should_send_alert(&dock_door.dock_name) {

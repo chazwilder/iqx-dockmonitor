@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use chrono::{NaiveDateTime, Local, Duration, Utc, TimeZone};
+use chrono::{NaiveDateTime, Local, Duration};
 use serde::{Deserialize, Serialize};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType};
 use crate::models::{DockDoor, DockDoorEvent, LoadingStatus};
@@ -79,7 +79,7 @@ impl AnalysisRule for LongLoadingStartRule {
 
         match event {
             DockDoorEvent::LoadingStatusChanged(e) if e.new_status == LoadingStatus::Loading => {
-                let loading_duration = Local::now().signed_duration_since(Utc.from_utc_datetime(&e.timestamp));
+                let loading_duration = Local::now().naive_local().signed_duration_since(e.timestamp);
                 if loading_duration > Duration::seconds(self.config.alert_threshold as i64) {
                     // Check if the loading progress is still 0%
                     if dock_door.wms_shipment_status == Some("Started".to_string()) &&
@@ -95,7 +95,7 @@ impl AnalysisRule for LongLoadingStartRule {
                 }
             },
             DockDoorEvent::WmsEvent(e) if e.event_type == "STARTED_SHIPMENT" => {
-                let loading_duration = Local::now().signed_duration_since(Utc.from_utc_datetime(&e.timestamp));
+                let loading_duration = Local::now().naive_local().signed_duration_since(e.timestamp);
                 if loading_duration > Duration::seconds(self.config.alert_threshold as i64) {
                     if dock_door.loading_status == LoadingStatus::Loading {
                         if self.should_send_alert(&dock_door.dock_name) {

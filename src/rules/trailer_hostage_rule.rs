@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use chrono::{NaiveDateTime, Local, Duration, Utc, TimeZone};
+use chrono::{NaiveDateTime, Local, Duration};
 use serde::{Deserialize, Serialize};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType};
 use crate::models::{DockDoor, DockDoorEvent, LoadingStatus, TrailerState, ManualMode};
@@ -104,7 +104,7 @@ impl AnalysisRule for TrailerHostageRule {
 
                 if self.is_hostage_situation(dock_door) {
                     let duration = dock_door.trailer_state_changed
-                        .map(|t| Local::now().signed_duration_since(Utc.from_utc_datetime(&t)))
+                        .map(|t| Local::now().naive_local().signed_duration_since(t))
                         .unwrap_or_else(|| Duration::seconds(0));
 
                     if duration > Duration::seconds(self.config.alert_threshold as i64) &&
