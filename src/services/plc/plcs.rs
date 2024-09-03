@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{info, error};
-use futures::future::join_all;
 use futures::{stream, StreamExt};
 use crate::models::PlcVal;
 use crate::errors::{DockManagerError, DockManagerResult};
@@ -75,22 +74,21 @@ impl PlcService {
     /// * `Err(DockManagerError)`: If there's an error during sensor polling or task joining
     pub async fn poll_sensors(&self, settings: &Settings) -> DockManagerResult<Vec<PlcVal>> {
         let start = Instant::now();
-        let plants = settings.plants.clone();
         let mut all_plc_values = Vec::new();
 
-        for (plant_index, plant) in plants.iter().enumerate() {
+        for (plant_index, plant) in settings.plants.iter().enumerate() {
             let plant_start = Instant::now();
-            let doors = plant.dock_doors.dock_door_config.clone();
-            let sensors = plant.dock_doors.dock_plc_tags.clone();
-            let max_retries = self.max_retries;
             let plant_id = plant.plant_id.clone();
 
-            info!("Starting sensor polling for plant {} with {} doors", plant_index, doors.len());
+            info!("Starting sensor polling for plant {} with {} doors", plant_index, plant.dock_doors.dock_door_config.len());
 
-            let sensor_futures = stream::iter(doors.into_iter().flat_map(|door| {
-                sensors.iter().map(move |sensor| {
+            let sensor_futures = plant.dock_doors.dock_door_config.iter().flat_map(|door| {
+                plant.dock_doors.dock_plc_tags.iter().map({
+                    let value = plant_id.clone();
+                    move |sensor| {
                     let reader = Arc::clone(&self.reader);
-                    let plant_id = plant_id.clone();
+                    let max_retries = self.max_retries;
+                    let plant_id = value.clone();
                     let door_name = door.dock_name.clone();
                     let door_ip = door.dock_ip.clone();
                     let sensor_name = sensor.tag_name.clone();
@@ -107,13 +105,16 @@ impl PlcService {
                             address
                         ).await
                     }
-                })
-            }))
-                .buffer_unordered(400) // Adjust this value based on your system's capabilities
-                .collect::<Vec<_>>()
+                }})
+            });
+
+            let plant_values: Vec<_> = stream::iter(sensor_futures)
+                .buffer_unordered(200)
+                .filter_map(|result| async move { result.ok() })
+                .collect()
                 .await;
 
-            all_plc_values.extend(sensor_futures.into_iter().filter_map(Result::ok));
+            all_plc_values.extend(plant_values);
 
             info!("Completed sensor polling for plant {} in {:?}", plant_index, plant_start.elapsed());
         }
