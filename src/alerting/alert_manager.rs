@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::analysis::AlertType;
 use crate::config::Settings;
 use crate::errors::DockManagerResult;
@@ -91,6 +92,7 @@ pub struct AlertManager {
     client: Client,
     /// Tracks the last alert time for each door to manage alert frequency
     alert_cooldown: Arc<Mutex<std::collections::HashMap<String, NaiveDateTime>>>,
+    monitored_alert_types: HashSet<String>
 }
 
 impl AlertManager {
@@ -107,7 +109,11 @@ impl AlertManager {
         info!("Initializing Alert Manager");
         let client = Client::new();
         let alert_cooldown = Arc::new(Mutex::new(std::collections::HashMap::new()));
-        Self { settings, client, alert_cooldown }
+        let mut monitored_alert_types = HashSet::new();
+        monitored_alert_types.insert("SuspendedDoor".to_string());
+        monitored_alert_types.insert("TrailerDockedNotStarted".to_string());
+        monitored_alert_types.insert("ShipmentStartedLoadNotReady".to_string());
+        Self { settings, client, alert_cooldown, monitored_alert_types }
     }
 
     /// Handles an incoming alert
@@ -122,7 +128,20 @@ impl AlertManager {
     pub async fn handle_alert(&self, alert_type: AlertType) -> DockManagerResult<()> {
         info!("Handling Alert: {:#?}", alert_type);
         let alert = self.convert_alert_type(alert_type.clone());
-        let (cooldown_key, repeat_interval) = match &alert.clone() {
+
+        let alert_type_name = match &alert {
+            Alert::SuspendedDoor { .. } => "SuspendedDoor",
+            Alert::TrailerPatternIssue { .. } => "TrailerPatternIssue",
+            Alert::LongLoadingStart { .. } => "LongLoadingStart",
+            Alert::ShipmentStartedLoadNotReady { .. } => "ShipmentStartedLoadNotReady",
+            Alert::TrailerHostage { .. } => "TrailerHostage",
+            Alert::TrailerDocked { .. } => "TrailerDocked",
+            Alert::DockReady { .. } => "DockReady",
+            Alert::TrailerUndocked { .. } => "TrailerUndocked",
+            _ => "Default",
+        };
+
+        let (cooldown_key, repeat_interval) = match &alert {
             Alert::SuspendedDoor { door_name, .. } => (
                 format!("suspended_door_{}", door_name),
                 self.settings.alerts.suspended_door.repeat_interval,
@@ -155,18 +174,24 @@ impl AlertManager {
                 format!("trailer_undocked_{}", door_name),
                 self.settings.alerts.trailer_undocked.repeat_interval,
             ),
-            // Add other cases as needed
             _ => (
                 "default".to_string(),
                 self.settings.alerts.suspended_door.repeat_interval, // Use a default interval
             ),
         };
 
-        let should_alert = self.check_cooldown(&cooldown_key, repeat_interval).await;
-        info!("Should Alert: {}, for alert: {:#?}", should_alert, alert_type);
-        if should_alert {
+        if self.monitored_alert_types.contains(alert_type_name) {
+            // For monitored items, always send the alert
+            info!("Sending monitored alert: {}", alert_type_name);
             self.send_alert(alert).await?;
-            self.update_cooldown(cooldown_key).await;
+        } else {
+            // For other alerts, use the existing cooldown logic
+            let should_alert = self.check_cooldown(&cooldown_key, repeat_interval).await;
+            info!("Should Alert: {}, for alert: {:#?}", should_alert, alert_type);
+            if should_alert {
+                self.send_alert(alert).await?;
+                self.update_cooldown(cooldown_key).await;
+            }
         }
 
         Ok(())

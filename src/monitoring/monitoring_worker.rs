@@ -62,6 +62,7 @@ impl MonitoringWorker {
     async fn process_item(&self, item: MonitoringItem) -> bool {
         match item {
             MonitoringItem::SuspendedShipment { door_name, shipment_id, suspended_at } => {
+                info!("Processing SuspendedShipment for door: {}, shipment: {}", door_name, shipment_id);
                 let door = self.state_manager.get_door(&door_name).await;
                 if let Some(door) = door {
                     if door.loading_status == crate::models::LoadingStatus::Suspended {
@@ -69,9 +70,19 @@ impl MonitoringWorker {
                         let alert_threshold = Duration::seconds(self.settings.monitoring.suspended_shipment.alert_threshold as i64);
                         let repeat_interval = Duration::seconds(self.settings.monitoring.suspended_shipment.repeat_interval as i64);
 
+                        info!("Door {} is suspended for {:?}. Alert threshold: {:?}, Repeat interval: {:?}",
+                          door_name, duration, alert_threshold, repeat_interval);
+
                         if duration >= alert_threshold {
-                            let should_alert = duration.num_seconds() % repeat_interval.num_seconds() < 60; // Check if it's time for a repeat alert
+                            let intervals_passed = duration.num_seconds() / repeat_interval.num_seconds();
+                            let last_alert_time = intervals_passed * repeat_interval.num_seconds();
+                            let should_alert = duration.num_seconds() - last_alert_time < 60; // Alert within the first minute after an interval
+
+                            info!("Intervals passed: {}, Last alert time: {}s, Current duration: {}s, Should alert: {}",
+                              intervals_passed, last_alert_time, duration.num_seconds(), should_alert);
+
                             if should_alert {
+                                info!("Sending alert for suspended door {}", door_name);
                                 if let Err(e) = self.alert_manager.handle_alert(AlertType::SuspendedDoor {
                                     door_name: door_name.clone(),
                                     duration,
@@ -92,6 +103,7 @@ impl MonitoringWorker {
                 }
             },
             MonitoringItem::TrailerDockedNotStarted { door_name, docked_at } => {
+                info!("Processing TrailerDockedNotStarted for door: {}", door_name);
                 let door = self.state_manager.get_door(&door_name).await;
                 if let Some(door) = door {
                     if door.trailer_state == crate::models::TrailerState::Docked &&
@@ -100,9 +112,19 @@ impl MonitoringWorker {
                         let alert_threshold = Duration::seconds(self.settings.monitoring.trailer_docked_not_started.alert_threshold as i64);
                         let repeat_interval = Duration::seconds(self.settings.monitoring.trailer_docked_not_started.repeat_interval as i64);
 
+                        info!("Door {} has trailer docked not started for {:?}. Alert threshold: {:?}, Repeat interval: {:?}",
+                  door_name, duration, alert_threshold, repeat_interval);
+
                         if duration >= alert_threshold {
-                            let should_alert = duration.num_seconds() % repeat_interval.num_seconds() < 60; // Check if it's time for a repeat alert
+                            let intervals_passed = duration.num_seconds() / repeat_interval.num_seconds();
+                            let last_alert_time = intervals_passed * repeat_interval.num_seconds();
+                            let should_alert = duration.num_seconds() - last_alert_time < 60;
+
+                            info!("Intervals passed: {}, Last alert time: {}s, Current duration: {}s, Should alert: {}",
+                      intervals_passed, last_alert_time, duration.num_seconds(), should_alert);
+
                             if should_alert {
+                                info!("Sending alert for trailer docked not started {}", door_name);
                                 if let Err(e) = self.alert_manager.handle_alert(AlertType::TrailerDockedNotStarted {
                                     door_name: door_name.clone(),
                                     duration,
@@ -122,6 +144,7 @@ impl MonitoringWorker {
                 }
             },
             MonitoringItem::ShipmentStartedLoadNotReady { door_name, shipment_id, started_at } => {
+                info!("Processing ShipmentStartedLoadNotReady for door: {}, shipment: {}", door_name, shipment_id);
                 let door = self.state_manager.get_door(&door_name).await;
                 if let Some(door) = door {
                     if !door.check_loading_readiness() {
@@ -129,9 +152,19 @@ impl MonitoringWorker {
                         let alert_threshold = Duration::seconds(self.settings.monitoring.shipment_started_load_not_ready.alert_threshold as i64);
                         let repeat_interval = Duration::seconds(self.settings.monitoring.shipment_started_load_not_ready.repeat_interval as i64);
 
+                        info!("Door {} has shipment started load not ready for {:?}. Alert threshold: {:?}, Repeat interval: {:?}",
+                  door_name, duration, alert_threshold, repeat_interval);
+
                         if duration >= alert_threshold {
-                            let should_alert = duration.num_seconds() % repeat_interval.num_seconds() < 60; // Check if it's time for a repeat alert
+                            let intervals_passed = duration.num_seconds() / repeat_interval.num_seconds();
+                            let last_alert_time = intervals_passed * repeat_interval.num_seconds();
+                            let should_alert = duration.num_seconds() - last_alert_time < 60;
+
+                            info!("Intervals passed: {}, Last alert time: {}s, Current duration: {}s, Should alert: {}",
+                      intervals_passed, last_alert_time, duration.num_seconds(), should_alert);
+
                             if should_alert {
+                                info!("Sending alert for shipment started load not ready {}", door_name);
                                 if let Err(e) = self.alert_manager.handle_alert(AlertType::ShipmentStartedLoadNotReady {
                                     door_name: door_name.clone(),
                                     shipment_id: shipment_id.clone(),
