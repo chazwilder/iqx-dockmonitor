@@ -78,7 +78,7 @@ impl DockDoorController {
         info!("Sensor update completed in {:?}", update_start.elapsed());
 
         let event_start = std::time::Instant::now();
-        info!("Processing {} events...", events.len());
+        info!("DOCK DOOR CONTROLLER: Processing {} events...", events.len());
         let mut db_events = Vec::new();
         for event in events {
             let new_db_events = self.event_handler.send_event(event).await?;

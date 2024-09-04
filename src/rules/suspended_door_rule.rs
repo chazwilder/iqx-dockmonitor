@@ -60,33 +60,27 @@ impl AnalysisRule for SuspendedDoorRule {
 
         match event {
             DockDoorEvent::LoadingStatusChanged(e) if e.new_status == LoadingStatus::Suspended => {
-                let suspension_duration = Local::now().naive_local().signed_duration_since(e.timestamp);
+                if self.should_send_alert(&dock_door.dock_name) {
+                    results.push(AnalysisResult::Alert(AlertType::SuspendedDoor {
+                        door_name: dock_door.dock_name.clone(),
+                        duration: Duration::seconds(0),
+                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
+                    }));
 
-                if suspension_duration > Duration::seconds(self.config.alert_threshold as i64) {
-                    if self.should_send_alert(&dock_door.dock_name) {
-                        results.push(AnalysisResult::Alert(AlertType::SuspendedDoor {
-                            door_name: dock_door.dock_name.clone(),
-                            duration: suspension_duration,
-                            shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                        }));
-
-                        // NEW CODE: Add log entry for the suspended door
-                        if let Some(AnalysisResult::Alert(AlertType::SuspendedDoor { door_name, duration, shipment_id })) = results.last() {
-                            let log_entry = LogEntry::SuspendedDoor {
-                                log_dttm: Local::now().naive_local(),
-                                plant: dock_door.plant_id.clone(),
-                                door_name: door_name.clone(),
-                                shipment_id: shipment_id.clone(),
-                                event_type: "SUSPENDED_DOOR".to_string(),
-                                success: false,
-                                notes: format!("Door suspended for {}", self.format_duration(duration)),
-                                severity: 2,
-                                previous_state: Some(format!("{:?}", e.old_status)),
-                                previous_state_dttm: Some(e.timestamp),
-                            };
-                            results.push(AnalysisResult::Log(log_entry));
-                        }
-                    }
+                    // Add log entry for the suspended door
+                    let log_entry = LogEntry::SuspendedDoor {
+                        log_dttm: Local::now().naive_local(),
+                        plant: dock_door.plant_id.clone(),
+                        door_name: dock_door.dock_name.clone(),
+                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
+                        event_type: "SUSPENDED_DOOR".to_string(),
+                        success: false,
+                        notes: "Door suspended".to_string(),
+                        severity: 2,
+                        previous_state: Some(format!("{:?}", e.old_status)),
+                        previous_state_dttm: Some(e.timestamp),
+                    };
+                    results.push(AnalysisResult::Log(log_entry));
                 }
             },
             DockDoorEvent::WmsEvent(e) if e.event_type == "SUSPENDED_SHIPMENT" => {

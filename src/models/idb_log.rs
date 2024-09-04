@@ -66,6 +66,7 @@ impl DbInsert {
             LogEntry::LongLoadingStart { log_dttm, plant, door_name, shipment_id, event_type, success, notes, severity, previous_state, previous_state_dttm } |
             LogEntry::TrailerHostage { log_dttm, plant, door_name, shipment_id, event_type, success, notes, severity, previous_state, previous_state_dttm } |
             LogEntry::ShipmentStartedLoadNotReady { log_dttm, plant, door_name, shipment_id, event_type, success, notes, severity, previous_state, previous_state_dttm } |
+            LogEntry::TrailerUndocked { log_dttm, plant, door_name, shipment_id, event_type, success, notes, severity, previous_state, previous_state_dttm } |
             LogEntry::TrailerPatternIssue { log_dttm, plant, door_name, shipment_id, event_type, success, notes, severity, previous_state, previous_state_dttm } => {
                 DbInsert {
                     LOG_DTTM: *log_dttm,

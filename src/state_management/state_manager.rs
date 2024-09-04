@@ -345,7 +345,7 @@ impl DockDoorStateManager {
                         continue;
                     }
                     if sensor.changed {
-                        info!("DockDoor: {} - Sensor state changed for sensor {} from {:?} to {:?}", door.dock_name, sensor_value.sensor_name, sensor.old_value, sensor.new_value);
+                        info!("DOCK DOOR STATE MANAGER: DockDoor: {} - Sensor state changed for sensor {} from {:?} to {:?}", door.dock_name, sensor_value.sensor_name, sensor.old_value, sensor.new_value);
                         let event = DockDoorEvent::SensorStateChanged(SensorStateChangedEvent {
                             dock_name: door.dock_name.clone(),
                             sensor_name: sensor_value.sensor_name.clone(),
@@ -356,6 +356,7 @@ impl DockDoorStateManager {
                         events.push(event);
 
                         if sensor_value.sensor_name == "TRAILER_AT_DOOR" && sensor_value.value == 0 {
+                            info!("DOCK DOOR STATE MANAGER: Trailer Is At Door, Trailer state before event: {:?}", door.trailer_state);
                             if door.trailer_state == TrailerState::Docked {
                                 let undock_event = DockDoorEvent::TrailerStateChanged(TrailerStateChangedEvent {
                                     dock_name: door.dock_name.clone(),

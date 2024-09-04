@@ -118,8 +118,9 @@ impl AlertManager {
     ///
     /// A Result indicating success or failure
     pub async fn handle_alert(&self, alert_type: AlertType) -> DockManagerResult<()> {
-        let alert = self.convert_alert_type(alert_type);
-        let (cooldown_key, repeat_interval) = match &alert {
+        info!("Handling Alert: {:#?}", alert_type);
+        let alert = self.convert_alert_type(alert_type.clone());
+        let (cooldown_key, repeat_interval) = match &alert.clone() {
             Alert::SuspendedDoor { door_name, .. } => (
                 format!("suspended_door_{}", door_name),
                 self.settings.alerts.suspended_door.repeat_interval,
@@ -160,7 +161,7 @@ impl AlertManager {
         };
 
         let should_alert = self.check_cooldown(&cooldown_key, repeat_interval).await;
-
+        info!("Should Alert: {}, for alert: {:#?}", should_alert, alert_type);
         if should_alert {
             self.send_alert(alert).await?;
             self.update_cooldown(cooldown_key).await;
@@ -319,9 +320,9 @@ impl AlertManager {
                 severity: 3,
                 shipment_id: None,
             },
-            AlertType::ManualModeAlert => Alert::ManualModeAlert {
-                door_name: "Unknown".to_string(),
-                shipment_id: None,
+            AlertType::ManualModeAlert { door_name, shipment_id } => Alert::ManualModeAlert {
+                door_name,
+                shipment_id,
             },
             AlertType::NewShipmentPreviousTrailerPresent { dock_name, new_shipment, previous_shipment, timestamp: _ } => {
                 Alert::NewShipmentPreviousTrailerPresent {

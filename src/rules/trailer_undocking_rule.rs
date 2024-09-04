@@ -11,7 +11,7 @@ impl AnalysisRule for TrailerUndockingRule {
 
         if let DockDoorEvent::TrailerStateChanged(e) = event {
             if e.new_state == TrailerState::Undocked && e.old_state == TrailerState::Docked {
-                let log_entry = LogEntry::DockingTime {
+                let log_entry = LogEntry::TrailerUndocked {
                     log_dttm: Local::now().naive_local(),
                     plant: door.plant_id.clone(),
                     door_name: door.dock_name.clone(),

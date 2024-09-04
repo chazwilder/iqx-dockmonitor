@@ -33,7 +33,10 @@ pub enum AlertType {
     /// A trailer is departing under unsafe conditions
     UnsafeDeparture,
     /// Manual mode has been activated while a trailer is at the door
-    ManualModeAlert,
+    ManualModeAlert {
+        door_name: String,
+        shipment_id: Option<String>,
+    },
     /// A new shipment is assigned while the previous trailer is still present
     NewShipmentPreviousTrailerPresent {
         dock_name: String,
@@ -282,6 +285,18 @@ pub enum LogEntry {
     },
     /// Logs a trailer pattern issue event
     TrailerPatternIssue {
+        log_dttm: NaiveDateTime,
+        plant: String,
+        door_name: String,
+        shipment_id: Option<String>,
+        event_type: String,
+        success: bool,
+        notes: String,
+        severity: i32,
+        previous_state: Option<String>,
+        previous_state_dttm: Option<NaiveDateTime>,
+    },
+    TrailerUndocked {
         log_dttm: NaiveDateTime,
         plant: String,
         door_name: String,

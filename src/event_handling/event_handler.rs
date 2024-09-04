@@ -103,11 +103,12 @@ impl EventHandler {
                     door.door_state = new_state;
                 },
                 AnalysisResult::Log(log_entry) => {
+                    info!("EVENT HANDLER: Processing event log entry for log: {:?}", log_entry);
                     let db_insert = DbInsert::from_log_entry(&log_entry);
                     db_events.push(db_insert);
                 },
                 AnalysisResult::Alert(alert) => {
-                    // Handle the alert using the AlertManager
+                    info!("EVENT HANDLER: Processing event alert for alert: {:?}", alert);
                     match self.alert_manager.handle_alert(alert.clone()).await {
                         Ok(_) => info!("Alert handled successfully: {:?}", alert),
                         Err(e) => error!("Failed to handle alert: {:?}. Error: {:?}", alert, e),
