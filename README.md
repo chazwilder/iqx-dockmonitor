@@ -2,21 +2,26 @@
 
 **Real-time Insights for Optimized Shipping Performance**
 
-The IQX Dock Manager revolutionizes warehouse shipping operations through real-time tracking, intelligent alerts, and actionable analytics. By integrating data from diverse systems, this Rust-powered solution provides insights to minimize delays, enhance throughput, and reduce costs.
+The IQX Dock Monitor empowers your shipping operations with real-time visibility and intelligent insights, driving efficiency and cost savings.
 
-**Key Features:**
+**Benefits:**
 
-* Real-time dock door, LGV, and shipment tracking
-* Proactive alerts for bottlenecks and optimization opportunities
-* Aggregated analytics for data-driven decision-making
-* Rust backend with seamless SQL Server, MongoDB, and RabbitMQ integration
-* Bridges legacy and modern systems for a holistic view
+* **Minimize Delays:** Proactive alerts enable swift responses to bottlenecks, reducing costly downtime.
+* **Enhance Throughput:** Real-time tracking and analytics optimize resource allocation, maximizing shipment volume.
+* **Reduce Costs:** Streamlined operations and data-driven decisions minimize waste and improve resource utilization.
+* **Data-Driven Decisions:** Aggregated analytics provide a comprehensive view for informed strategic planning.
+* **Future-Proof Technology:** Built on Rust, ensuring robustness, performance, and adaptability to evolving needs.
+* **Legacy Integration:** Bridges the gap between legacy and modern systems, unlocking a holistic operational view.
+
+**Features:**
+
+* **Real-time Monitoring:** Track dock doors, LGVs, and shipments in real-time for complete visibility.
+* **Intelligent Alerts:** Receive proactive notifications of potential issues and optimization opportunities.
+* **Actionable Analytics:** Aggregate data from multiple sources for comprehensive performance analysis.
+* **Robust Backend:** Rust-powered backend ensures reliability and performance for mission-critical operations.
+* **Seamless Integration:** Connects with SQL Server, MongoDB, and RabbitMQ for a unified data ecosystem.
 
 **Ideal for warehouse managers, operations teams, and IT professionals seeking to optimize shipping performance.**
-
-## Dock Door Flow
-
-[View on Eraser![](https://app.eraser.io/workspace/z8rVLln7Kcolc88ZACAk/preview?elements=jkD-WYe5OYUGJx96LZ2UfA&type=embed)](https://app.eraser.io/workspace/z8rVLln7Kcolc88ZACAk?elements=jkD-WYe5OYUGJx96LZ2UfA)
 
 ## Getting Started
 
@@ -58,9 +63,55 @@ The IQX Dock Manager revolutionizes warehouse shipping operations through real-t
    docker run -d --name dock-manager -p 8080:8080 iqx-dock-manager
    ```
 
-## License
+# Project Modularity
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+The IQX Dock Monitor's modular design allows for easy extension and customization. Here's a guide for developers on how to add new rules, alerts, and monitoring capabilities:
+
+## Adding New Rules
+
+1. **Define the Rule Logic:**
+   - Create a new Rust file in the `src/rules` directory (e.g., `my_new_rule.rs`).
+   - Implement the `AnalysisRule` trait, defining the `apply` method that encapsulates your rule's logic.
+   - The `apply` method should take a `DockDoor` and a `DockDoorEvent` as input and return a `Vec<AnalysisResult>`.
+   - Within the `apply` method, analyze the event in the context of the dock door's state and generate appropriate `AnalysisResult`s (e.g., `Alert`, `StateTransition`, `Log`, or `DbInsert`).
+
+2. **Register the Rule:**
+   - In `src/rules/rule_factory.rs`, add a new case to the `create_rule` method to handle your new rule type.
+   - The case should call a constructor function in your rule file to create an instance of your rule.
+   - The constructor function should take a `serde_json::Value` as input, allowing you to pass configuration parameters to your rule.
+
+3. **Configure the Rule (Optional):**
+   - If your rule requires configuration parameters, create a corresponding struct in your rule file to represent the configuration.
+   - Deserialize the configuration from the `serde_json::Value` in your constructor function.
+
+4. **Add the Rule to the Analyzer:**
+   - In `src/main.rs`, load your new rule using the `DynamicRuleManager` and add it to the `ContextAnalyzer`.
+
+## Adding New Alerts
+
+1. **Define the Alert Type:**
+   - In `src/analysis/context_analyzer.rs`, add a new variant to the `AlertType` enum to represent your new alert.
+   - Include any necessary data fields that the alert needs to carry (e.g., door name, shipment ID, duration).
+
+2. **Generate the Alert in a Rule:**
+   - Within the `apply` method of your analysis rule, generate an `AnalysisResult::Alert` with your new `AlertType` when the rule's conditions are met.
+
+3. **Handle the Alert in the `AlertManager`:**
+   - In `src/alerting/alert_manager.rs`, add a new case to the `format_alert_message` method to handle the formatting of your new alert type into a human-readable message.
+   - You might also need to update the `convert_alert_type` method if your alert requires special conversion logic.
+
+## Adding New Monitoring Capabilities
+
+1. **Define the Monitoring Item:**
+   - In `src/monitoring/monitoring_queue.rs`, add a new variant to the `MonitoringItem` enum to represent the data you want to monitor.
+
+2. **Add the Item to the Queue:**
+   - Within the `EventHandler`'s `process_event` method (or another suitable location), add the new `MonitoringItem` to the `monitoring_queue` when appropriate.
+
+3. **Process the Item in the `MonitoringWorker`:**
+   - In `src/monitoring/monitoring_worker.rs`, add a new case to the `process_item` method to handle your new `MonitoringItem`.
+   - Implement the logic to check the monitoring conditions, generate alerts if necessary, and decide whether to keep the item in the queue for further monitoring.
+
 
 ## Acknowledgments
 
@@ -71,8 +122,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Let's revolutionize warehouse shipping together!**
 
-**Remember to replace `your-username` with your actual GitHub username.**
 
-This README provides a comprehensive overview of the project, installation instructions, contribution guidelines, and licensing information. It also includes acknowledgments and a disclaimer to set expectations. Feel free to enhance it further with additional sections like a project roadmap, screenshots, or a more detailed explanation of the technical architecture.
 
-Let me know if you have any other questions or modifications! 
