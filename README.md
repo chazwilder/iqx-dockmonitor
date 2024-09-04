@@ -112,6 +112,13 @@ The IQX Dock Monitor's modular design allows for easy extension and customizatio
    - In `src/monitoring/monitoring_worker.rs`, add a new case to the `process_item` method to handle your new `MonitoringItem`.
    - Implement the logic to check the monitoring conditions, generate alerts if necessary, and decide whether to keep the item in the queue for further monitoring.
 
+## Examples
+### Alerts
+![Teams Alerts Screenshot](assets/teams.png)
+
+## Consolidate Data Results
+![Data Consolidated](assets/ConsolidatedData.png)
+
 
 ## Acknowledgments
 
