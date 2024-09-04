@@ -2,7 +2,6 @@ use crate::models::{DockDoor, DockDoorEvent, TrailerState};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry};
 use chrono::Local;
 use tracing::info;
-use crate::analysis::AlertType;
 
 pub struct TrailerUndockingRule;
 
