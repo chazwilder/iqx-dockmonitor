@@ -74,6 +74,11 @@ pub enum Alert {
         shipment_id: Option<String>,
         timestamp: NaiveDateTime,
     },
+    TrailerUndocked {
+        door_name: String,
+        shipment_id: Option<String>,
+        timestamp: NaiveDateTime,
+    },
 }
 
 /// Manages the creation and sending of alerts
@@ -142,6 +147,10 @@ impl AlertManager {
             Alert::DockReady { door_name, .. } => (
                 format!("dock_ready_{}", door_name),
                 self.settings.alerts.dock_ready.repeat_interval,
+            ),
+            Alert::TrailerUndocked { door_name, .. } => (
+                format!("trailer_undocked_{}", door_name),
+                self.settings.alerts.trailer_undocked.repeat_interval,
             ),
             // Add other cases as needed
             _ => (
@@ -247,7 +256,10 @@ impl AlertManager {
                 format!("✅ DOCK READY: Door {} - Shipment {} is ready for loading at {}",
                         door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp)
             },
-
+            Alert::TrailerUndocked { door_name, shipment_id, timestamp } => {
+                format!("🚚 TRAILER UNDOCKED: Door {} - Shipment {} undocked at {}",
+                        door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp)
+            },
         }
     }
 
@@ -359,6 +371,11 @@ impl AlertManager {
                 timestamp,
             },
             AlertType::DockReady { door_name, shipment_id, timestamp } => Alert::DockReady {
+                door_name,
+                shipment_id,
+                timestamp,
+            },
+            AlertType::TrailerUndocked { door_name, shipment_id, timestamp } => Alert::TrailerUndocked {
                 door_name,
                 shipment_id,
                 timestamp,

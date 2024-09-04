@@ -164,6 +164,14 @@ impl AnalysisRule for TrailerDockingRule {
             DockDoorEvent::TrailerStateChanged(e) => {
                 if e.new_state == TrailerState::Docked && e.old_state == TrailerState::Undocked {
                     let is_successful = self.is_docking_successful(dock_door);
+
+                    if is_successful {
+                        results.push(AnalysisResult::Alert(AlertType::TrailerDocked {
+                            door_name: dock_door.dock_name.clone(),
+                            shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
+                            timestamp: e.timestamp,
+                        }));
+                    }
                     let log_entry = LogEntry::DockingTime {
                         log_dttm: Local::now().naive_local(),
                         plant: dock_door.plant_id.clone(),

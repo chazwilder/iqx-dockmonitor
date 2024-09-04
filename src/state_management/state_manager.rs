@@ -4,7 +4,7 @@
 //! processes them using an `EventHandler` and a `ContextAnalyzer`, and maintains an in-memory representation of each door's state. 
 //! It also handles the persistence of events to the database.
 
-use crate::models::WmsEvent;
+use crate::models::{TrailerState, TrailerStateChangedEvent, WmsEvent};
 use tokio::sync::{RwLock, mpsc, oneshot};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -354,6 +354,19 @@ impl DockDoorStateManager {
                             timestamp: chrono::Local::now().naive_local(),
                         });
                         events.push(event);
+
+                        if sensor_value.sensor_name == "TRAILER_AT_DOOR" && sensor_value.value == 0 {
+                            if door.trailer_state == TrailerState::Docked {
+                                let undock_event = DockDoorEvent::TrailerStateChanged(TrailerStateChangedEvent {
+                                    dock_name: door.dock_name.clone(),
+                                    old_state: TrailerState::Docked,
+                                    new_state: TrailerState::Undocked,
+                                    timestamp: chrono::Local::now().naive_local(),
+                                });
+                                events.push(undock_event);
+                                door.trailer_state = TrailerState::Undocked;
+                            }
+                        }
                     } else {
                         debug!("No change in sensor state for door {}, sensor {}", door.dock_name, sensor_value.sensor_name);
                     }

@@ -269,6 +269,7 @@ pub struct AlertSettings {
     pub trailer_hostage: AlertThresholds,
     pub trailer_docked: AlertThresholds,
     pub dock_ready: AlertThresholds,
+    pub trailer_undocked: AlertThresholds,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

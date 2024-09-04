@@ -1,6 +1,7 @@
 use crate::models::{DockDoor, DockDoorEvent, TrailerState};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry};
 use chrono::Local;
+use crate::analysis::AlertType;
 
 pub struct TrailerUndockingRule;
 
@@ -24,6 +25,12 @@ impl AnalysisRule for TrailerUndockingRule {
                 };
 
                 results.push(AnalysisResult::Log(log_entry));
+
+                results.push(AnalysisResult::Alert(AlertType::TrailerUndocked {
+                    door_name: door.dock_name.clone(),
+                    shipment_id: door.assigned_shipment.current_shipment.clone(),
+                    timestamp: e.timestamp,
+                }));
             }
         }
 
