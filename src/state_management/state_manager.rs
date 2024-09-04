@@ -16,6 +16,7 @@ use crate::analysis::ContextAnalyzer;
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::event_handling::event_handler::EventHandler;
 use crate::models::{DbInsert, DockDoor, DockDoorEvent, DoorState, PlcVal, SensorStateChangedEvent, WmsDoorStatus};
+use crate::monitoring::MonitoringQueue;
 
 /// The maximum size of the event queue
 const MAX_QUEUE_SIZE: usize = 1000;
@@ -71,6 +72,7 @@ impl DockDoorStateManager {
         settings: &Settings,
         context_analyzer: ContextAnalyzer,
         alert_manager: Arc<AlertManager>,
+        monitoring_queue: Arc<MonitoringQueue>,
     ) -> (Self, EventHandler) {
         let (command_sender, command_receiver) = channel(100);
         let (event_sender, event_receiver) = channel(MAX_QUEUE_SIZE);
@@ -101,7 +103,8 @@ impl DockDoorStateManager {
             event_receiver,
             Arc::new(manager.clone()),
             Arc::new(context_analyzer),
-            alert_manager.clone()
+            alert_manager.clone(),
+            monitoring_queue.clone(),
         );
 
         tokio::spawn(manager.clone().run(command_receiver));

@@ -85,6 +85,8 @@ pub enum AlertType {
         door_name: String,
         shipment_id: Option<String>,
         timestamp: NaiveDateTime,
+        success: bool,
+        failure_reason: Option<String>,
     },
     DockReady {
         door_name: String,

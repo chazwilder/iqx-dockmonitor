@@ -196,14 +196,19 @@ impl AnalysisRule for TrailerDockingRule {
             DockDoorEvent::TrailerStateChanged(e) => {
                 if e.new_state == TrailerState::Docked && e.old_state == TrailerState::Undocked {
                     let is_successful = self.is_docking_successful(dock_door);
+                    let failure_reason = if !is_successful {
+                        Some(self.get_failure_reason(dock_door))
+                    } else {
+                        None
+                    };
 
-                    if is_successful {
-                        results.push(AnalysisResult::Alert(AlertType::TrailerDocked {
-                            door_name: dock_door.dock_name.clone(),
-                            shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                            timestamp: e.timestamp,
-                        }));
-                    }
+                    results.push(AnalysisResult::Alert(AlertType::TrailerDocked {
+                        door_name: dock_door.dock_name.clone(),
+                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
+                        timestamp: e.timestamp,
+                        success: is_successful,
+                        failure_reason,
+                    }));
 
                     let log_entry = LogEntry::DockingTime {
                         log_dttm: Local::now().naive_local(),
@@ -239,21 +244,20 @@ impl AnalysisRule for TrailerDockingRule {
                         return vec![];
                     }
                     let is_successful = self.is_docking_successful(dock_door);
-                    info!("TrailerDockingRule: Docking successful: {}", is_successful);
-                    if is_successful {
-                        results.push(AnalysisResult::Alert(AlertType::TrailerDocked {
-                            door_name: dock_door.dock_name.clone(),
-                            shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                            timestamp: e.timestamp,
-                        }));
-                    }
+                    let failure_reason = if !is_successful {
+                        Some(self.get_failure_reason(dock_door))
+                    } else {
+                        None
+                    };
 
-                    // Generate alert for both successful and failed docking
                     results.push(AnalysisResult::Alert(AlertType::TrailerDocked {
                         door_name: dock_door.dock_name.clone(),
                         shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
                         timestamp: e.timestamp,
+                        success: is_successful,
+                        failure_reason,
                     }));
+
 
                     let log_entry = LogEntry::DockingTime {
                         log_dttm: Local::now().naive_local(),

@@ -68,6 +68,8 @@ pub enum Alert {
         door_name: String,
         shipment_id: Option<String>,
         timestamp: NaiveDateTime,
+        success: bool,
+        failure_reason: Option<String>,
     },
     DockReady {
         door_name: String,
@@ -249,9 +251,14 @@ impl AlertManager {
                 format!("⏳ TRAILER DOCKED NOT STARTED: Door {} has had a trailer docked for {} without starting loading",
                         door_name, self.format_duration(duration))
             },
-            Alert::TrailerDocked { door_name, shipment_id, timestamp } => {
-                format!("🚛 TRAILER DOCKED: Door {} - Shipment {} docked successfully at {}",
-                        door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp)
+            Alert::TrailerDocked { door_name, shipment_id, timestamp, success, failure_reason } => {
+                if *success {
+                    format!("🚛 TRAILER DOCKED SUCCESSFULLY: Door {} - Shipment {} docked at {}",
+                            door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp)
+                } else {
+                    format!("⚠️ TRAILER DOCKING FAILED: Door {} - Shipment {} failed to dock at {}. Reason: {}",
+                            door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp, failure_reason.as_deref().unwrap_or("Unknown"))
+                }
             },
             Alert::DockReady { door_name, shipment_id, timestamp } => {
                 format!("✅ DOCK READY: Door {} - Shipment {} is ready for loading at {}",
@@ -366,10 +373,12 @@ impl AlertManager {
                 severity: 2,
                 shipment_id: None,
             },
-            AlertType::TrailerDocked { door_name, shipment_id, timestamp } => Alert::TrailerDocked {
+            AlertType::TrailerDocked { door_name, shipment_id, timestamp, success, failure_reason } => Alert::TrailerDocked {
                 door_name,
                 shipment_id,
                 timestamp,
+                success,
+                failure_reason,
             },
             AlertType::DockReady { door_name, shipment_id, timestamp } => Alert::DockReady {
                 door_name,
@@ -403,6 +412,7 @@ impl AlertManager {
             true
         }
     }
+
 
     /// Updates the cooldown time for an alert
     ///

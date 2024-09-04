@@ -3,14 +3,16 @@
 //! This module handles the processing of events in the dock door management system. It receives events from a queue, analyzes them using a `ContextAnalyzer`,
 //! updates the state of dock doors through a `DockDoorStateManager`, and persists relevant events to the database.
 
-use crate::models::{DockDoorEvent, DbInsert};
+use crate::models::{DockDoorEvent, DbInsert, DockDoor};
 use crate::state_management::DockDoorStateManager;
-use crate::analysis::{AnalysisResult, ContextAnalyzer};
+use crate::analysis::{AlertType, AnalysisResult, ContextAnalyzer};
 use crate::errors::{DockManagerResult, DockManagerError};
 use tokio::sync::{mpsc, Mutex};
 use std::sync::Arc;
+use chrono::Local;
 use tracing::{info, error, debug};
 use crate::alerting::alert_manager::AlertManager;
+use crate::monitoring::{MonitoringItem, MonitoringQueue};
 
 /// The `EventHandler` is responsible for processing events in the dock door management system.
 pub struct EventHandler {
@@ -21,6 +23,7 @@ pub struct EventHandler {
     /// The context analyzer used to analyze events and generate insights.
     context_analyzer: Arc<ContextAnalyzer>,
     alert_manager: Arc<AlertManager>,
+    monitoring_queue: Arc<MonitoringQueue>,
 }
 
 impl EventHandler {
@@ -34,13 +37,15 @@ impl EventHandler {
         event_queue: mpsc::Receiver<DockDoorEvent>,
         state_manager: Arc<DockDoorStateManager>,
         context_analyzer: Arc<ContextAnalyzer>,
-        alert_manager: Arc<AlertManager>
+        alert_manager: Arc<AlertManager>,
+        monitoring_queue: Arc<MonitoringQueue>,
     ) -> Self {
         Self {
             event_queue: Mutex::new(event_queue),
             state_manager,
             context_analyzer,
-            alert_manager
+            alert_manager,
+            monitoring_queue
         }
     }
 
@@ -113,6 +118,7 @@ impl EventHandler {
                         Ok(_) => info!("Alert handled successfully: {:?}", alert),
                         Err(e) => error!("Failed to handle alert: {:?}. Error: {:?}", alert, e),
                     }
+                    self.add_to_monitoring_queue(alert, &door).await;
                 },
                 AnalysisResult::DbInsert(db_insert) => {
                     db_events.push(db_insert);
@@ -120,13 +126,9 @@ impl EventHandler {
             }
         }
 
-        // Handle the event in the door's state
         door.handle_event(&event)?;
-
-        // Update the door in the state manager
         self.state_manager.update_door(door).await?;
 
-        // Insert database events if any were generated
         if !db_events.is_empty() {
             self.insert_db_events(&db_events).await?;
         }
@@ -152,5 +154,31 @@ impl EventHandler {
             self.state_manager.insert_db_event(event.clone()).await?;
         }
         Ok(())
+    }
+
+    async fn add_to_monitoring_queue(&self, alert: AlertType, _door: &DockDoor) {
+        match alert {
+            AlertType::SuspendedDoor { door_name, duration: _, shipment_id } => {
+                self.monitoring_queue.add(MonitoringItem::SuspendedShipment {
+                    door_name,
+                    shipment_id: shipment_id.unwrap_or_default(),
+                    suspended_at: Local::now().naive_local(),
+                }).await;
+            },
+            AlertType::TrailerDocked { door_name, shipment_id: _, timestamp, success: true, failure_reason: _ } => {
+                self.monitoring_queue.add(MonitoringItem::TrailerDockedNotStarted {
+                    door_name,
+                    docked_at: timestamp,
+                }).await;
+            },
+            AlertType::ShipmentStartedLoadNotReady { door_name, shipment_id, reason: _ } => {
+                self.monitoring_queue.add(MonitoringItem::ShipmentStartedLoadNotReady {
+                    door_name,
+                    shipment_id,
+                    started_at: Local::now().naive_local(),
+                }).await;
+            },
+            _ => {}
+        }
     }
 }

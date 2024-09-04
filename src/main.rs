@@ -9,6 +9,7 @@ use iqx_dockmonitor::alerting::alert_manager::AlertManager;
 use iqx_dockmonitor::analysis::create_default_analyzer;
 use iqx_dockmonitor::config::Settings;
 use iqx_dockmonitor::controllers::dock_door::DockDoorController;
+use iqx_dockmonitor::monitoring::{MonitoringQueue, MonitoringWorker};
 use iqx_dockmonitor::rules::DynamicRuleManager;
 use iqx_dockmonitor::rules::wms_shipment_status_rule::WmsShipmentStatus;
 use iqx_dockmonitor::services::db::DatabaseService;
@@ -66,10 +67,13 @@ async fn run() -> Result<()> {
     }
     context_analyzer.add_rule(Arc::new(WmsShipmentStatus));
 
+    let monitoring_queue = Arc::new(MonitoringQueue::new());
+
     let (state_manager, event_handler) = DockDoorStateManager::new(
         &settings,
         context_analyzer,
-        Arc::clone(&alert_manager)
+        Arc::clone(&alert_manager),
+        Arc::clone(&monitoring_queue)
     );
     let state_manager = Arc::new(state_manager);
     let event_handler = Arc::new(event_handler);
@@ -91,6 +95,19 @@ async fn run() -> Result<()> {
         if let Err(e) = event_handler_clone.run().await {
             error!("EventHandler error: {:?}", e);
         }
+    });
+
+
+    let monitoring_worker = MonitoringWorker::new(
+        Arc::clone(&monitoring_queue),
+        Arc::clone(&state_manager),
+        Arc::clone(&alert_manager),
+        Arc::clone(&Arc::new(settings)),
+    );
+
+    let monitoring_worker_clone = monitoring_worker.clone();
+    tokio::spawn(async move {
+        monitoring_worker_clone.run().await;
     });
 
     loop {
