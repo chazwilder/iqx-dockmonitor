@@ -32,7 +32,8 @@ impl MonitoringWorker {
     }
 
     pub async fn run(&self) {
-        let mut interval = interval(tokio::time::Duration::from_secs(60));  // Check every minute
+        let monitoring_check_interval = self.settings.monitoring.check_interval.clone();
+        let mut interval = interval(tokio::time::Duration::from_secs(monitoring_check_interval));
 
         loop {
             interval.tick().await;
@@ -65,18 +66,22 @@ impl MonitoringWorker {
                 if let Some(door) = door {
                     if door.loading_status == crate::models::LoadingStatus::Suspended {
                         let duration = Local::now().naive_local().signed_duration_since(suspended_at);
-                        if duration >= Duration::seconds(self.settings.monitoring.suspended_shipment.alert_threshold as i64) {
-                            if let Err(e) = self.alert_manager.handle_alert(AlertType::SuspendedDoor {
-                                door_name: door_name.clone(),
-                                duration,
-                                shipment_id: Some(shipment_id.clone()),
-                            }).await {
-                                error!("Failed to handle SuspendedDoor alert: {:?}", e);
+                        let alert_threshold = Duration::seconds(self.settings.monitoring.suspended_shipment.alert_threshold as i64);
+                        let repeat_interval = Duration::seconds(self.settings.monitoring.suspended_shipment.repeat_interval as i64);
+
+                        if duration >= alert_threshold {
+                            let should_alert = duration.num_seconds() % repeat_interval.num_seconds() < 60; // Check if it's time for a repeat alert
+                            if should_alert {
+                                if let Err(e) = self.alert_manager.handle_alert(AlertType::SuspendedDoor {
+                                    door_name: door_name.clone(),
+                                    duration,
+                                    shipment_id: Some(shipment_id.clone()),
+                                }).await {
+                                    error!("Failed to handle SuspendedDoor alert: {:?}", e);
+                                }
                             }
-                            true // Keep in queue for future checks
-                        } else {
-                            true // Not yet reached threshold, keep in queue
                         }
+                        true // Keep in queue for future checks
                     } else {
                         info!("Door {} is no longer suspended", door_name);
                         false // Remove from queue
@@ -92,17 +97,21 @@ impl MonitoringWorker {
                     if door.trailer_state == crate::models::TrailerState::Docked &&
                         door.loading_status != crate::models::LoadingStatus::Loading {
                         let duration = Local::now().naive_local().signed_duration_since(docked_at);
-                        if duration >= Duration::seconds(self.settings.monitoring.trailer_docked_not_started.alert_threshold as i64) {
-                            if let Err(e) = self.alert_manager.handle_alert(AlertType::TrailerDockedNotStarted {
-                                door_name: door_name.clone(),
-                                duration,
-                            }).await {
-                                error!("Failed to handle TrailerDockedNotStarted alert: {:?}", e);
+                        let alert_threshold = Duration::seconds(self.settings.monitoring.trailer_docked_not_started.alert_threshold as i64);
+                        let repeat_interval = Duration::seconds(self.settings.monitoring.trailer_docked_not_started.repeat_interval as i64);
+
+                        if duration >= alert_threshold {
+                            let should_alert = duration.num_seconds() % repeat_interval.num_seconds() < 60; // Check if it's time for a repeat alert
+                            if should_alert {
+                                if let Err(e) = self.alert_manager.handle_alert(AlertType::TrailerDockedNotStarted {
+                                    door_name: door_name.clone(),
+                                    duration,
+                                }).await {
+                                    error!("Failed to handle TrailerDockedNotStarted alert: {:?}", e);
+                                }
                             }
-                            true // Keep in queue for future checks
-                        } else {
-                            true // Not yet reached threshold, keep in queue
                         }
+                        true // Keep in queue for future checks
                     } else {
                         info!("Door {} trailer state or loading status has changed", door_name);
                         false // Remove from queue
@@ -117,18 +126,22 @@ impl MonitoringWorker {
                 if let Some(door) = door {
                     if !door.check_loading_readiness() {
                         let duration = Local::now().naive_local().signed_duration_since(started_at);
-                        if duration >= Duration::seconds(self.settings.monitoring.shipment_started_load_not_ready.alert_threshold as i64) {
-                            if let Err(e) = self.alert_manager.handle_alert(AlertType::ShipmentStartedLoadNotReady {
-                                door_name: door_name.clone(),
-                                shipment_id: shipment_id.clone(),
-                                reason: format!("Dock still not ready after {}", self.format_duration(&duration)),
-                            }).await {
-                                error!("Failed to handle ShipmentStartedLoadNotReady alert: {:?}", e);
+                        let alert_threshold = Duration::seconds(self.settings.monitoring.shipment_started_load_not_ready.alert_threshold as i64);
+                        let repeat_interval = Duration::seconds(self.settings.monitoring.shipment_started_load_not_ready.repeat_interval as i64);
+
+                        if duration >= alert_threshold {
+                            let should_alert = duration.num_seconds() % repeat_interval.num_seconds() < 60; // Check if it's time for a repeat alert
+                            if should_alert {
+                                if let Err(e) = self.alert_manager.handle_alert(AlertType::ShipmentStartedLoadNotReady {
+                                    door_name: door_name.clone(),
+                                    shipment_id: shipment_id.clone(),
+                                    reason: format!("Dock still not ready after {}", self.format_duration(&duration)),
+                                }).await {
+                                    error!("Failed to handle ShipmentStartedLoadNotReady alert: {:?}", e);
+                                }
                             }
-                            true // Keep in queue for future checks
-                        } else {
-                            true // Not yet reached threshold, keep in queue
                         }
+                        true // Keep in queue for future checks
                     } else {
                         info!("Door {} is now ready for loading", door_name);
                         false // Remove from queue
