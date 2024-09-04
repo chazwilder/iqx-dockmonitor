@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use chrono::Local;
 use tokio::time::{interval, Duration};
+use tracing::info;
 use crate::alerting::alert_manager::AlertManager;
 use crate::analysis::context_analyzer::AlertType;
 use crate::state_management::DockDoorStateManager;
@@ -29,11 +30,14 @@ impl MonitoringWorker {
         let mut interval = interval(Duration::from_secs(60));  // Check every minute
 
         loop {
+            info!("Starting Monitoring Working Loop...");
             interval.tick().await;
 
             while let Some(item) = self.queue.get().await {
+                info!("Processing Monitoring Item: {:#?}", item.clone());
                 self.process_item(item).await;
             }
+            info!("Monitoring Working Loop Completed");
         }
     }
 
@@ -57,7 +61,7 @@ impl MonitoringWorker {
                 let door = self.state_manager.get_door(&door_name).await;
                 if let Some(door) = door {
                     if door.trailer_state == crate::models::TrailerState::Docked &&
-                        door.loading_status == crate::models::LoadingStatus::Idle {
+                        door.loading_status != crate::models::LoadingStatus::Loading { // need to fix to != Loading
                         let duration = Local::now().naive_local().signed_duration_since(docked_at);
                         self.alert_manager.handle_alert(AlertType::TrailerDockedNotStarted {
                             door_name,
