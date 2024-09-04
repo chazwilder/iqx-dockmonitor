@@ -132,6 +132,7 @@ impl AlertManager {
         let alert_type_name = match &alert {
             Alert::SuspendedDoor { .. } => "SuspendedDoor",
             Alert::TrailerPatternIssue { .. } => "TrailerPatternIssue",
+            Alert::TrailerDockedNotStarted { .. } => "TrailerDockedNotStarted",
             Alert::LongLoadingStart { .. } => "LongLoadingStart",
             Alert::ShipmentStartedLoadNotReady { .. } => "ShipmentStartedLoadNotReady",
             Alert::TrailerHostage { .. } => "TrailerHostage",
@@ -392,11 +393,9 @@ impl AlertManager {
                 severity,
                 shipment_id,
             },
-            AlertType::TrailerDockedNotStarted { door_name, duration } => Alert::TrailerPatternIssue {
+            AlertType::TrailerDockedNotStarted { door_name, duration } => Alert::TrailerDockedNotStarted {
                 door_name,
-                issue: format!("Trailer docked but loading not started for {}", self.format_duration(&duration)),
-                severity: 2,
-                shipment_id: None,
+                duration,
             },
             AlertType::TrailerDocked { door_name, shipment_id, timestamp, success, failure_reason } => Alert::TrailerDocked {
                 door_name,

@@ -106,8 +106,8 @@ impl MonitoringWorker {
                 info!("Processing TrailerDockedNotStarted for door: {}", door_name);
                 let door = self.state_manager.get_door(&door_name).await;
                 if let Some(door) = door {
-                    if door.trailer_state == crate::models::TrailerState::Docked &&
-                        door.loading_status != crate::models::LoadingStatus::Loading {
+                    info!("Door state: {:?}, Loading status: {:?}", door.trailer_state, door.loading_status);
+                    if door.trailer_state == crate::models::TrailerState::Docked {
                         let duration = Local::now().naive_local().signed_duration_since(docked_at);
                         let alert_threshold = Duration::seconds(self.settings.monitoring.trailer_docked_not_started.alert_threshold as i64);
                         let repeat_interval = Duration::seconds(self.settings.monitoring.trailer_docked_not_started.repeat_interval as i64);
@@ -135,7 +135,8 @@ impl MonitoringWorker {
                         }
                         true // Keep in queue for future checks
                     } else {
-                        info!("Door {} trailer state or loading status has changed", door_name);
+                        info!("Door {} trailer state or loading status has changed. Trailer state: {:?}, Loading status: {:?}",
+                  door_name, door.trailer_state, door.loading_status);
                         false // Remove from queue
                     }
                 } else {
