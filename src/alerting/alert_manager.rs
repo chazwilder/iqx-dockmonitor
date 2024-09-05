@@ -274,7 +274,7 @@ impl AlertManager {
                         door_name, self.format_duration(duration), shipment_id.as_deref().unwrap_or("N/A"))
             },
             Alert::TrailerDockedNotStarted { door_name, duration } => {
-                format!("⏳ TRAILER DOCKED NOT STARTED: Door {} has had a trailer docked for {} without starting loading",
+                format!("⏳ TRAILER DOCKED NOT STARTED: Door {} has had a trailer docked for {} without inspection or starting in wms.",
                         door_name, self.format_duration(duration))
             },
             Alert::TrailerDocked { door_name, shipment_id, timestamp, success, failure_reason } => {

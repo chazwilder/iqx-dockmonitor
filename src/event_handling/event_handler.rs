@@ -178,6 +178,12 @@ impl EventHandler {
                     started_at: Local::now().naive_local(),
                 }).await;
             },
+            AlertType::DockReady { door_name, timestamp, .. } => {
+                self.monitoring_queue.add(MonitoringItem::TrailerDockedNotStarted {
+                    door_name,
+                    docked_at: timestamp,
+                }).await;
+            },
             _ => {}
         }
     }

@@ -107,21 +107,18 @@ impl MonitoringWorker {
                 let door = self.state_manager.get_door(&door_name).await;
                 if let Some(door) = door {
                     info!("Door state: {:?}, Loading status: {:?}", door.trailer_state, door.loading_status);
-                    if door.trailer_state == crate::models::TrailerState::Docked {
+                    if door.loading_status == crate::models::LoadingStatus::Loading {
+                        info!("Loading has started for door {}", door_name);
+                        false // Remove from queue
+                    } else {
                         let duration = Local::now().naive_local().signed_duration_since(docked_at);
                         let alert_threshold = Duration::seconds(self.settings.monitoring.trailer_docked_not_started.alert_threshold as i64);
                         let repeat_interval = Duration::seconds(self.settings.monitoring.trailer_docked_not_started.repeat_interval as i64);
-
-                        info!("Door {} has trailer docked not started for {:?}. Alert threshold: {:?}, Repeat interval: {:?}",
-                  door_name, duration, alert_threshold, repeat_interval);
 
                         if duration >= alert_threshold {
                             let intervals_passed = duration.num_seconds() / repeat_interval.num_seconds();
                             let last_alert_time = intervals_passed * repeat_interval.num_seconds();
                             let should_alert = duration.num_seconds() - last_alert_time < 60;
-
-                            info!("Intervals passed: {}, Last alert time: {}s, Current duration: {}s, Should alert: {}",
-                      intervals_passed, last_alert_time, duration.num_seconds(), should_alert);
 
                             if should_alert {
                                 info!("Sending alert for trailer docked not started {}", door_name);
@@ -134,10 +131,6 @@ impl MonitoringWorker {
                             }
                         }
                         true // Keep in queue for future checks
-                    } else {
-                        info!("Door {} trailer state or loading status has changed. Trailer state: {:?}, Loading status: {:?}",
-                  door_name, door.trailer_state, door.loading_status);
-                        false // Remove from queue
                     }
                 } else {
                     warn!("Door {} not found in state manager", door_name);
