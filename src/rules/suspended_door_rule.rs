@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use chrono::{NaiveDateTime, Local, Duration};
 use serde::{Deserialize, Serialize};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType, LogEntry};
-use crate::models::{DockDoor, DockDoorEvent};
+use crate::models::{DockDoor, DockDoorEvent, LoadingStatus};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuspendedDoorRuleConfig {
@@ -59,6 +59,31 @@ impl AnalysisRule for SuspendedDoorRule {
         let mut results = Vec::new();
 
         match event {
+            DockDoorEvent::LoadingStatusChanged(e) if e.new_status == LoadingStatus::Suspended => {
+                if self.should_send_alert(&dock_door.dock_name) {
+                    results.push(AnalysisResult::Alert(AlertType::SuspendedDoor {
+                        door_name: dock_door.dock_name.clone(),
+                        duration: Duration::seconds(0),
+                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
+                        user: "N/A".to_string()
+                    }));
+
+                    // Add log entry for the suspended door
+                    let log_entry = LogEntry::SuspendedDoor {
+                        log_dttm: Local::now().naive_local(),
+                        plant: dock_door.plant_id.clone(),
+                        door_name: dock_door.dock_name.clone(),
+                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
+                        event_type: "SUSPENDED_DOOR".to_string(),
+                        success: false,
+                        notes: "Door suspended".to_string(),
+                        severity: 2,
+                        previous_state: Some(format!("{:?}", e.old_status)),
+                        previous_state_dttm: Some(e.timestamp),
+                    };
+                    results.push(AnalysisResult::Log(log_entry));
+                }
+            },
             DockDoorEvent::WmsEvent(e) if e.event_type == "SUSPENDED_SHIPMENT" => {
                 if self.should_send_alert(&dock_door.dock_name) {
                     let duration = e.timestamp.signed_duration_since(
