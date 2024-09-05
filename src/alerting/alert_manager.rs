@@ -119,7 +119,21 @@ impl fmt::Display for Alert {
             AlertType::NewShipmentPreviousTrailerPresent => format!("🚛 NEW SHIPMENT, PREVIOUS TRAILER PRESENT: Door {}", self.door_name),
             AlertType::TrailerHostage => format!("🚨 TRAILER HOSTAGE ALERT: Door {}", self.door_name),
             AlertType::TrailerDockedNotStarted => format!("⏳ TRAILER DOCKED NOT STARTED: Door {}", self.door_name),
-            AlertType::TrailerDocked => format!("🚛 TRAILER DOCKED: Door {}", self.door_name),
+            AlertType::TrailerDocked => {
+                let success = self.additional_info.get("success").unwrap().parse::<bool>().unwrap();
+
+                if success {
+                    format!(
+                        "🚛 TRAILER DOCKED: Door {}",
+                        self.door_name
+                    )
+                } else {
+                    format!(
+                        "⚠️ TRAILER DOCKING FAILED: Door {}",
+                        self.door_name
+                    )
+                }
+            },
             AlertType::DockReady => format!("✅ DOCK READY: Door {}", self.door_name),
             AlertType::TrailerUndocked => format!("🚚 TRAILER UNDOCKED: Door {}", self.door_name),
         };
