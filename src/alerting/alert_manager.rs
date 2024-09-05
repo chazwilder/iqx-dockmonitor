@@ -146,7 +146,15 @@ impl fmt::Display for Alert {
             full_msg.push_str(&format!(" - Duration: {}", format_duration(&duration)));
         }
         for (key, value) in &self.additional_info {
-            full_msg.push_str(&format!(" - {}: {}", key, value));
+            if key.contains("timestamp") {
+                if let Ok(val) = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S%.f") {
+                    full_msg.push_str(&format!(" - {}: {}", key, val.format("%Y-%m-%d %H:%M:%S")));
+                } else {
+                    full_msg.push_str(&format!(" - {}: {}", key, value));
+                }
+            } else {
+                full_msg.push_str(&format!(" - {}: {}", key, value));
+            }
         }
 
         write!(f, "{}", full_msg)
