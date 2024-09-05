@@ -280,19 +280,19 @@ impl AlertManager {
             Alert::TrailerDocked { door_name, shipment_id, timestamp, success, failure_reason } => {
                 if *success {
                     format!("🚛 TRAILER DOCKED SUCCESSFULLY: Door {} - Shipment {} docked at {}",
-                            door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp)
+                            door_name, shipment_id.as_deref().unwrap_or("N/A"), self.format_dttm(timestamp))
                 } else {
                     format!("⚠️ TRAILER DOCKING FAILED: Door {} - Shipment {} failed to dock at {}. Reason: {}",
-                            door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp, failure_reason.as_deref().unwrap_or("Unknown"))
+                            door_name, shipment_id.as_deref().unwrap_or("N/A"), self.format_dttm(timestamp), failure_reason.as_deref().unwrap_or("Unknown"))
                 }
             },
             Alert::DockReady { door_name, shipment_id, timestamp } => {
                 format!("✅ DOCK READY: Door {} - Shipment {} is ready for loading at {}",
-                        door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp)
+                        door_name, shipment_id.as_deref().unwrap_or("N/A"), self.format_dttm(timestamp))
             },
             Alert::TrailerUndocked { door_name, shipment_id, timestamp } => {
                 format!("🚚 TRAILER UNDOCKED: Door {} - Shipment {} undocked at {}",
-                        door_name, shipment_id.as_deref().unwrap_or("N/A"), timestamp)
+                        door_name, shipment_id.as_deref().unwrap_or("N/A"), self.format_dttm(timestamp))
             },
         }
     }
@@ -319,6 +319,10 @@ impl AlertManager {
         } else {
             format!("{}s", seconds)
         }
+    }
+
+    pub fn format_dttm(&self, dttm: &NaiveDateTime) -> String {
+        dttm.format("%Y-%m-%d %H:%M:%S").to_string()
     }
 
     /// Converts an AlertType to an Alert
