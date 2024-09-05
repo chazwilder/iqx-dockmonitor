@@ -56,6 +56,7 @@ pub enum AlertType {
         door_name: String,
         duration: Duration,
         shipment_id: Option<String>,
+        user: String
     },
     /// A loading process has taken too long to start
     LongLoadingStart {

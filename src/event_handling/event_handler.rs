@@ -158,11 +158,12 @@ impl EventHandler {
 
     async fn add_to_monitoring_queue(&self, alert: AlertType, _door: &DockDoor) {
         match alert {
-            AlertType::SuspendedDoor { door_name, duration: _, shipment_id } => {
+            AlertType::SuspendedDoor { door_name, duration: _, shipment_id, user } => {
                 self.monitoring_queue.add(MonitoringItem::SuspendedShipment {
                     door_name,
                     shipment_id: shipment_id.unwrap_or_default(),
                     suspended_at: Local::now().naive_local(),
+                    user: user.clone()
                 }).await;
             },
             AlertType::TrailerDocked { door_name, shipment_id: _, timestamp, success: true, failure_reason: _ } => {

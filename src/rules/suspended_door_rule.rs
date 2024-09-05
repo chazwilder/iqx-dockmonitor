@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use chrono::{NaiveDateTime, Local, Duration};
 use serde::{Deserialize, Serialize};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType, LogEntry};
-use crate::models::{DockDoor, DockDoorEvent, LoadingStatus};
+use crate::models::{DockDoor, DockDoorEvent};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuspendedDoorRuleConfig {
@@ -59,43 +59,25 @@ impl AnalysisRule for SuspendedDoorRule {
         let mut results = Vec::new();
 
         match event {
-            DockDoorEvent::LoadingStatusChanged(e) if e.new_status == LoadingStatus::Suspended => {
-                if self.should_send_alert(&dock_door.dock_name) {
-                    results.push(AnalysisResult::Alert(AlertType::SuspendedDoor {
-                        door_name: dock_door.dock_name.clone(),
-                        duration: Duration::seconds(0),
-                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                    }));
-
-                    // Add log entry for the suspended door
-                    let log_entry = LogEntry::SuspendedDoor {
-                        log_dttm: Local::now().naive_local(),
-                        plant: dock_door.plant_id.clone(),
-                        door_name: dock_door.dock_name.clone(),
-                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                        event_type: "SUSPENDED_DOOR".to_string(),
-                        success: false,
-                        notes: "Door suspended".to_string(),
-                        severity: 2,
-                        previous_state: Some(format!("{:?}", e.old_status)),
-                        previous_state_dttm: Some(e.timestamp),
-                    };
-                    results.push(AnalysisResult::Log(log_entry));
-                }
-            },
             DockDoorEvent::WmsEvent(e) if e.event_type == "SUSPENDED_SHIPMENT" => {
                 if self.should_send_alert(&dock_door.dock_name) {
                     let duration = e.timestamp.signed_duration_since(
                         dock_door.assigned_shipment.assignment_dttm.unwrap_or(e.timestamp)
                     );
+                    let user = e.message_notes
+                        .as_ref()
+                        .and_then(|notes| notes.split('-').next())
+                        .map(|user| user.trim().to_string())
+                        .unwrap_or_else(|| "Unknown".to_string());
                     results.push(AnalysisResult::Alert(AlertType::SuspendedDoor {
                         door_name: dock_door.dock_name.clone(),
                         duration,
                         shipment_id: Some(e.shipment_id.clone()),
+                        user,
                     }));
 
-                    // NEW CODE: Add log entry for the suspended door (WMS event)
-                    if let Some(AnalysisResult::Alert(AlertType::SuspendedDoor { door_name, duration, shipment_id })) = results.last() {
+                    // Update the log entry as well
+                    if let Some(AnalysisResult::Alert(AlertType::SuspendedDoor { door_name, duration, shipment_id, user })) = results.last() {
                         let log_entry = LogEntry::SuspendedDoor {
                             log_dttm: Local::now().naive_local(),
                             plant: dock_door.plant_id.clone(),
@@ -103,7 +85,7 @@ impl AnalysisRule for SuspendedDoorRule {
                             shipment_id: shipment_id.clone(),
                             event_type: "SUSPENDED_DOOR_WMS".to_string(),
                             success: false,
-                            notes: format!("Door suspended for {} (WMS event)", self.format_duration(duration)),
+                            notes: format!("Door suspended for {} by user {}", self.format_duration(duration), user),
                             severity: 2,
                             previous_state: None,
                             previous_state_dttm: None,

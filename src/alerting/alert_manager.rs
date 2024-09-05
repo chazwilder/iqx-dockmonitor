@@ -17,6 +17,7 @@ pub enum Alert {
         door_name: String,
         duration: Duration,
         shipment_id: Option<String>,
+        user: String,
     },
     /// Alert for a trailer pattern issue
     TrailerPatternIssue {
@@ -240,9 +241,9 @@ impl AlertManager {
     /// A formatted alert message as a String
     pub fn format_alert_message(&self, alert: &Alert) -> String {
         match alert {
-            Alert::SuspendedDoor { door_name, duration, shipment_id } => {
-                format!("🚨 SUSPENDED DOOR ALERT: Door {} has been suspended for {}. Shipment ID: {}",
-                        door_name, self.format_duration(duration), shipment_id.as_deref().unwrap_or("N/A"))
+            Alert::SuspendedDoor { door_name, duration, shipment_id, user } => {
+                format!("🚨 SUSPENDED DOOR ALERT: Door {} has been suspended for {} by user {}. Shipment ID: {}",
+                        door_name, self.format_duration(duration), user, shipment_id.as_deref().unwrap_or("N/A"))
             },
             Alert::TrailerPatternIssue { door_name, issue, severity, shipment_id } => {
                 format!("⚠️ TRAILER PATTERN ISSUE: Door {} - {}. Severity: {}. Shipment ID: {}",
@@ -376,10 +377,11 @@ impl AlertManager {
                     end_time,
                 }
             },
-            AlertType::SuspendedDoor { door_name, duration, shipment_id } => Alert::SuspendedDoor {
+            AlertType::SuspendedDoor { door_name, duration, shipment_id,user } => Alert::SuspendedDoor {
                 door_name,
                 duration,
                 shipment_id,
+                user
             },
             AlertType::LongLoadingStart { door_name, shipment_id, duration } => Alert::LongLoadingStart {
                 door_name,

@@ -5,6 +5,7 @@ use tracing::{info, warn, error};
 use crate::alerting::alert_manager::AlertManager;
 use crate::analysis::context_analyzer::AlertType;
 use crate::config::Settings;
+use crate::models::LoadingStatus;
 use crate::state_management::DockDoorStateManager;
 use super::monitoring_queue::{MonitoringQueue, MonitoringItem};
 
@@ -61,7 +62,7 @@ impl MonitoringWorker {
 
     async fn process_item(&self, item: MonitoringItem) -> bool {
         match item {
-            MonitoringItem::SuspendedShipment { door_name, shipment_id, suspended_at } => {
+            MonitoringItem::SuspendedShipment { door_name, shipment_id, suspended_at, user } => {
                 info!("Processing SuspendedShipment for door: {}, shipment: {}", door_name, shipment_id);
                 let door = self.state_manager.get_door(&door_name).await;
                 if let Some(door) = door {
@@ -87,6 +88,7 @@ impl MonitoringWorker {
                                     door_name: door_name.clone(),
                                     duration,
                                     shipment_id: Some(shipment_id.clone()),
+                                    user: user.clone()
                                 }).await {
                                     error!("Failed to handle SuspendedDoor alert: {:?}", e);
                                 }
@@ -107,8 +109,17 @@ impl MonitoringWorker {
                 let door = self.state_manager.get_door(&door_name).await;
                 if let Some(door) = door {
                     info!("Door state: {:?}, Loading status: {:?}", door.trailer_state, door.loading_status);
-                    if door.loading_status == crate::models::LoadingStatus::Loading {
-                        info!("Loading has started for door {}", door_name);
+                    let loading_started = matches!(door.loading_status,
+                        LoadingStatus::Loading |
+                        LoadingStatus::Suspended |
+                        LoadingStatus::Completed |
+                        LoadingStatus::WaitingForExit |
+                        LoadingStatus::CancelledShipment |
+                        LoadingStatus::StartedWithAnticipation
+                    );
+
+                    if loading_started {
+                        info!("Loading has started or progressed for door {}", door_name);
                         false // Remove from queue
                     } else {
                         let duration = Local::now().naive_local().signed_duration_since(docked_at);

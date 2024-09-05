@@ -9,6 +9,7 @@ pub enum MonitoringItem {
         door_name: String,
         shipment_id: String,
         suspended_at: NaiveDateTime,
+        user: String
     },
     TrailerDockedNotStarted {
         door_name: String,
