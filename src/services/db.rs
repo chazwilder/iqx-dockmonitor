@@ -61,6 +61,7 @@ impl DatabaseConnectionFactory {
 }
 
 /// Provides services for interacting with both local and plant-specific WMS databases
+#[derive(Clone)]
 pub struct DatabaseService {
     /// The database client for the local database
     local_client: DatabaseClient,

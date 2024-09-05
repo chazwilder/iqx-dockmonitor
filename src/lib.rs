@@ -11,3 +11,4 @@ pub mod repositories;
 pub mod event_handling;
 pub mod alerting;
 pub mod monitoring;
+pub mod init;
