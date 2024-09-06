@@ -1,8 +1,3 @@
-//! # Dock Manager State Enums
-
-//! This module defines several enums representing various states within the IQX Dock Manager system.
-//! These enums enable structured and type-safe representation of different states related to doors, trailers, and other components, enhancing code clarity and maintainability.
-
 use serde::{Deserialize, Serialize};
 use derive_more::FromStr;
 
@@ -83,4 +78,26 @@ pub enum FaultState {
     NoFault,
     /// A fault is present.
     FaultPresent,
+}
+
+/// Represents the state of the restraint: locking, unlocking, locked, or unlocked
+#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize, FromStr)]
+pub enum RestraintState {
+    /// The restraint is in the process of locking
+    Locking,
+    /// The restraint is in the process of unlocking
+    Unlocking,
+    /// The restraint is locked
+    Locked,
+    /// The restraint is unlocked
+    Unlocked,
+}
+
+/// Represents the position state of the trailer: proper or improper
+#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize, FromStr)]
+pub enum TrailerPositionState {
+    /// The trailer is in the proper position
+    Proper,
+    /// The trailer is not in the proper position
+    Improper,
 }

@@ -11,6 +11,7 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use sqlx_oldapi::FromRow;
 use crate::analysis::LogEntry;
+use crate::models::WmsEvent;
 
 /// Represents a record to be inserted into the database, typically derived from a `LogEntry`
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
@@ -83,5 +84,29 @@ impl DbInsert {
                 }
             }
         }
+    }
+
+    pub fn get_plant_id(&self) -> &str {
+        &self.PLANT
+    }
+}
+
+impl TryFrom<WmsEvent> for DbInsert {
+    type Error = String;
+
+    fn try_from(event: WmsEvent) -> Result<Self, Self::Error> {
+        Ok(DbInsert {
+            LOG_DTTM: event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()),
+            PLANT: event.plant,
+            DOOR_NAME: event.dock_name,
+            SHIPMENT_ID: Some(event.shipment_id),
+            EVENT_TYPE: event.message_type,
+            SUCCESS: if event.result_code == 0 { 1 } else { 0 },
+            NOTES: event.message_notes.unwrap_or_default(),
+            ID_USER: None,
+            SEVERITY: event.result_code,
+            PREVIOUS_STATE: None,
+            PREVIOUS_STATE_DTTM: None,
+        })
     }
 }

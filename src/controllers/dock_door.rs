@@ -101,7 +101,7 @@ impl DockDoorController {
 
     /// Updates WMS events for doors with assigned shipments
     ///
-    /// 1. Acquires a read lock on the `state_manager`'s doors
+    /// 1. Gets all doors from the state manager
     /// 2. Filters doors that have an assigned shipment
     /// 3. For each such door, fetches WMS events concurrently using the `db_service`
     /// 4. Collects all fetched WMS events and processes them using the `state_manager`, which may generate database insert events
@@ -114,10 +114,11 @@ impl DockDoorController {
     /// * `Err(DockManagerError)` if any errors occur during fetching WMS events, processing them, or inserting into the database
     pub async fn update_wms_events(&self) -> DockManagerResult<()> {
         let db_service = Arc::clone(&self.db_service);
-        let doors = self.state_manager.doors.read().await;
+        let door_repository = self.state_manager.get_door_repository();
 
-        let futures: Vec<_> = doors.values()
-            .filter(|dock_door| dock_door.assigned_shipment.current_shipment.is_some())
+        let futures: Vec<_> = door_repository.get_all_doors()
+            .into_iter()
+            .filter(|door| door.assigned_shipment.current_shipment.is_some())
             .map(|door| {
                 let shipment_id = door.assigned_shipment.current_shipment.clone().unwrap();
                 let door_name = door.dock_name.clone();

@@ -62,9 +62,28 @@ impl DockDoorEvent {
         }
     }
 
+    pub fn get_plant_id(&self) -> &str {
+        match self {
+            DockDoorEvent::DockAssigned(e) => &e.plant_id,
+            DockDoorEvent::DockUnassigned(e) => &e.plant_id,
+            DockDoorEvent::TrailerDocked(e) => &e.plant_id,
+            DockDoorEvent::TrailerDeparted(e) => &e.plant_id,
+            DockDoorEvent::LoadingStarted(e) => &e.plant_id,
+            DockDoorEvent::LoadingCompleted(e) => &e.plant_id,
+            DockDoorEvent::SensorStateChanged(e) => &e.plant_id,
+            DockDoorEvent::DoorStateChanged(e) => &e.plant_id,
+            DockDoorEvent::LoadingStatusChanged(e) => &e.plant_id,
+            DockDoorEvent::TrailerStateChanged(e) => &e.plant_id,
+            DockDoorEvent::ShipmentAssigned(e) => &e.plant_id,
+            DockDoorEvent::ShipmentUnassigned(e) => &e.plant_id,
+            DockDoorEvent::WmsEvent(e) => &e.plant_id,
+        }
+    }
+
     /// Creates a `DockDoorEvent` from a `WmsEvent`
     pub fn from_wms_event(wms_event: WmsEvent) -> Self {
         DockDoorEvent::WmsEvent(WmsEventWrapper {
+            plant_id: wms_event.plant,
             dock_name: wms_event.dock_name,
             shipment_id: wms_event.shipment_id,
             event_type: wms_event.message_type,
@@ -78,6 +97,7 @@ impl DockDoorEvent {
     /// Creates a `DockDoorEvent` from a `DbInsert`
     pub fn from_db_insert(db_insert: &DbInsert) -> Self {
         DockDoorEvent::WmsEvent(WmsEventWrapper {
+            plant_id: db_insert.PLANT.clone(),
             dock_name: db_insert.DOOR_NAME.clone(),
             shipment_id: db_insert.SHIPMENT_ID.clone().unwrap_or_default(),
             event_type: db_insert.EVENT_TYPE.clone(),
@@ -92,6 +112,7 @@ impl DockDoorEvent {
 /// A wrapper for WMS events, providing additional context for the Dock Manager
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WmsEventWrapper {
+    plant_id: String,
     /// The name of the dock associated with the event
     pub dock_name: String,
     /// The ID of the shipment related to the event
@@ -113,6 +134,7 @@ pub struct WmsEventWrapper {
 /// Represents an event where a dock has been assigned to a shipment.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockAssignedEvent {
+    pub plant_id: String,
     /// The name of the dock that has been assigned.
     pub dock_name: String,
     /// The ID of the shipment assigned to the dock.
@@ -124,6 +146,7 @@ pub struct DockAssignedEvent {
 /// Represents an event where a dock has been unassigned from a shipment.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockUnassignedEvent {
+    pub plant_id: String,
     /// The name of the dock that has been unassigned
     pub dock_name: String,
     /// The ID of the shipment that was unassigned from the dock
@@ -135,6 +158,7 @@ pub struct DockUnassignedEvent {
 /// Represents an event where a trailer has docked at a door.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrailerDockedEvent {
+    pub plant_id: String,
     /// The name of the dock where the trailer docked
     pub dock_name: String,
     /// The ID of the shipment associated with the docked trailer
@@ -146,6 +170,7 @@ pub struct TrailerDockedEvent {
 /// Represents an event where the loading process has started at a door
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoadingStartedEvent {
+    pub plant_id: String,
     /// The name of the dock where loading started
     pub dock_name: String,
     /// The ID of the shipment being loaded
@@ -157,6 +182,7 @@ pub struct LoadingStartedEvent {
 /// Represents an event where the loading process has been completed at a door
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoadingCompletedEvent {
+    pub plant_id: String,
     /// The name of the dock where loading was completed
     pub dock_name: String,
     /// The ID of the shipment that was loaded
@@ -168,6 +194,7 @@ pub struct LoadingCompletedEvent {
 /// Represents an event where a trailer has departed from a door
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrailerDepartedEvent {
+    pub plant_id: String,
     /// The name of the dock from which the trailer departed
     pub dock_name: String,
     /// The ID of the shipment associated with the departed trailer
@@ -179,6 +206,7 @@ pub struct TrailerDepartedEvent {
 /// Represents an event where a shipment has been assigned to a door
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShipmentAssignedEvent {
+    pub plant_id: String,
     /// The name of the dock to which the shipment is assigned
     pub dock_name: String,
     /// The ID of the assigned shipment
@@ -192,6 +220,7 @@ pub struct ShipmentAssignedEvent {
 /// Represents an event where a shipment has been unassigned from a door
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShipmentUnassignedEvent {
+    pub plant_id: String,
     /// The name of the dock from which the shipment is unassigned
     pub dock_name: String,
     /// The ID of the unassigned shipment
@@ -203,6 +232,7 @@ pub struct ShipmentUnassignedEvent {
 /// Represents an event where the state of a sensor has changed
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SensorStateChangedEvent {
+    pub plant_id: String,
     /// The name of the dock where the sensor is located
     pub dock_name: String,
     /// The name of the sensor that changed state
@@ -218,6 +248,7 @@ pub struct SensorStateChangedEvent {
 /// Represents an event where the state of a door has changed
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DoorStateChangedEvent {
+    pub plant_id: String,
     /// The name of the door whose state changed
     pub dock_name: String,
     /// The previous state of the door
@@ -231,6 +262,7 @@ pub struct DoorStateChangedEvent {
 /// Represents an event where the loading status of a door has changed
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoadingStatusChangedEvent {
+    pub plant_id: String,
     /// The name of the dock where the loading status changed
     pub dock_name: String,
     /// The previous loading status
@@ -244,6 +276,7 @@ pub struct LoadingStatusChangedEvent {
 /// Represents an event where the state of a trailer has changed
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrailerStateChangedEvent {
+    pub plant_id: String,
     /// The name of the dock associated with the trailer
     pub dock_name: String,
     /// The previous state of the trailer

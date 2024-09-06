@@ -16,7 +16,7 @@ use crate::models::istates::{DoorState, TrailerState, ManualMode, DockLockState,
 use crate::models::istatus::LoadingStatus;
 use crate::models::ievents::{DockAssignedEvent, DockDoorEvent, DockUnassignedEvent, DoorStateChangedEvent, LoadingCompletedEvent, LoadingStartedEvent, LoadingStatusChangedEvent, SensorStateChangedEvent, TrailerDepartedEvent, TrailerDockedEvent};
 use crate::errors::{DockManagerError, DockManagerResult};
-use crate::models::{AssignedShipment, ShipmentAssignedEvent, ShipmentUnassignedEvent, TrailerStateChangedEvent, WmsDoorStatus};
+use crate::models::{AssignedShipment, RestraintState, ShipmentAssignedEvent, ShipmentUnassignedEvent, TrailerPositionState, TrailerStateChangedEvent, WmsDoorStatus};
 
 
 /// Represents the result of evaluating a sensor update
@@ -73,6 +73,20 @@ pub struct DockDoor {
     pub sensors: HashMap<String, DockSensor>,
     /// The timestamp when the door's state was last updated
     pub last_updated: NaiveDateTime,
+    /// Indicates if there's a fault with the trailer doors
+    pub trailer_door_fault: bool,
+    /// Indicates if there's a fault with the dock lock
+    pub dock_lock_fault: bool,
+    /// Indicates if there's a fault with the door
+    pub door_fault: bool,
+    /// Indicates if the emergency stop has been activated
+    pub emergency_stop: bool,
+    /// Indicates if there's a fault with the leveler
+    pub leveler_fault: bool,
+    /// The current state of the restraint (Locking, Unlocking, Locked, Unlocked)
+    pub restraint_state: RestraintState,
+    /// The current position state of the trailer (Proper or Improper)
+    pub trailer_position_state: TrailerPositionState,
 }
 
 impl DockDoor {
@@ -113,6 +127,13 @@ impl DockDoor {
             assigned_shipment: AssignedShipment::default(),
             sensors: HashMap::new(),
             last_updated: chrono::Local::now().naive_local(),
+            trailer_door_fault: false,
+            dock_lock_fault: false,
+            door_fault: false,
+            emergency_stop: false,
+            leveler_fault: false,
+            restraint_state: RestraintState::Unlocked,
+            trailer_position_state: TrailerPositionState::Improper,
         };
         for tag in &plant_settings.dock_doors.dock_plc_tags {
             door.sensors.insert(
@@ -448,6 +469,7 @@ impl DockDoor {
 
             if let Some(shipment_id) = &wms_status.assigned_shipment {
                 events.push(DockDoorEvent::ShipmentAssigned(ShipmentAssignedEvent {
+                    plant_id: wms_status.plant.clone(),
                     dock_name: self.dock_name.clone(),
                     shipment_id: shipment_id.clone(),
                     timestamp: chrono::Local::now().naive_local(),
@@ -455,6 +477,7 @@ impl DockDoor {
                 }));
             } else if let Some(previous_shipment) = old_shipment {
                 events.push(DockDoorEvent::ShipmentUnassigned(ShipmentUnassignedEvent {
+                    plant_id: wms_status.plant.clone(),
                     dock_name: self.dock_name.clone(),
                     shipment_id: previous_shipment,
                     timestamp: chrono::Local::now().naive_local(),
@@ -466,6 +489,7 @@ impl DockDoor {
             .unwrap_or(LoadingStatus::Idle);
         if self.loading_status != new_loading_status {
             events.push(DockDoorEvent::LoadingStatusChanged(LoadingStatusChangedEvent {
+                plant_id: wms_status.plant.clone(),
                 dock_name: self.dock_name.clone(),
                 old_status: self.loading_status,
                 new_status: new_loading_status,
@@ -480,11 +504,18 @@ impl DockDoor {
     }
 
     pub fn check_loading_readiness(&self) -> bool {
-        // Implement the logic to check if the dock is ready for loading
-        // This is an example, adjust according to your specific requirements
         self.door_position == DoorPosition::Open &&
             self.dock_lock_state == DockLockState::Engaged &&
             self.leveler_position == LevelerPosition::Extended &&
-            self.fault_state == FaultState::NoFault
+            self.fault_state == FaultState::NoFault &&
+            self.trailer_state == TrailerState::Docked &&
+            self.manual_mode == ManualMode::Disabled &&
+            self.restraint_state == RestraintState::Locked &&
+            self.trailer_position_state == TrailerPositionState::Proper &&
+            !self.trailer_door_fault &&
+            !self.dock_lock_fault &&
+            !self.door_fault &&
+            !self.emergency_stop &&
+            !self.leveler_fault
     }
 }

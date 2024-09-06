@@ -26,6 +26,8 @@ tracing  = "0.1.40"
 tracing-appender = "0.2.3"
 async-trait = "0.1.81"
 reqwest = { version = "0.12.7", features = ["json"] }
+dashmap = { version =  "6.1.0", features = ["serde", "rayon", "inline"] }
+rayon = "1.10.0"
 
 [profile.release]
 debug = true

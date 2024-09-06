@@ -1,5 +1,4 @@
 use crate::models::{DockDoorEvent, DbInsert, DockDoor};
-use crate::state_management::DockDoorStateManager;
 use crate::analysis::{AnalysisResult, context_analyzer, ContextAnalyzer};
 use crate::errors::{DockManagerResult, DockManagerError};
 use crate::alerting::alert_manager::{AlertManager, Alert};
@@ -9,13 +8,15 @@ use std::sync::Arc;
 use chrono::Local;
 use tracing::{info, error, debug};
 use crate::alerting::alert_manager;
+use crate::state_management::door_state_repository::DoorStateRepository;
 
 /// The `EventHandler` is responsible for processing events in the dock door management system.
+#[derive(Clone)]
 pub struct EventHandler {
     /// A queue for receiving `DockDoorEvent`s.
-    event_queue: Mutex<mpsc::Receiver<DockDoorEvent>>,
-    /// The state manager responsible for maintaining the state of dock doors.
-    state_manager: Arc<DockDoorStateManager>,
+    event_queue: Arc<Mutex<mpsc::Receiver<DockDoorEvent>>>,
+    /// The state repository responsible for maintaining the state of dock doors.
+    door_repository: Arc<DoorStateRepository>,
     /// The context analyzer used to analyze events and generate insights.
     context_analyzer: Arc<ContextAnalyzer>,
     /// The alert manager responsible for handling and sending alerts.
@@ -30,7 +31,7 @@ impl EventHandler {
     /// # Arguments
     ///
     /// * `event_queue` - The receiver end of a channel to receive `DockDoorEvent`s.
-    /// * `state_manager` - The `DockDoorStateManager` to interact with for state updates.
+    /// * `door_repository` - The `DoorStateRepository` to interact with for state updates.
     /// * `context_analyzer` - The `ContextAnalyzer` to use for event analysis.
     /// * `alert_manager` - The `AlertManager` to handle alerts.
     /// * `monitoring_queue` - The `MonitoringQueue` to add monitoring items.
@@ -40,14 +41,14 @@ impl EventHandler {
     /// A new `EventHandler` instance.
     pub fn new(
         event_queue: mpsc::Receiver<DockDoorEvent>,
-        state_manager: Arc<DockDoorStateManager>,
+        door_repository: Arc<DoorStateRepository>,
         context_analyzer: Arc<ContextAnalyzer>,
         alert_manager: Arc<AlertManager>,
         monitoring_queue: Arc<MonitoringQueue>,
     ) -> Self {
         Self {
-            event_queue: Mutex::new(event_queue),
-            state_manager,
+            event_queue: Arc::new(Mutex::new(event_queue)),
+            door_repository,
             context_analyzer,
             alert_manager,
             monitoring_queue
@@ -105,7 +106,9 @@ impl EventHandler {
         debug!("Processing event: {:?}", event);
 
         let door_name = event.get_dock_name();
-        let mut door = self.state_manager.get_door(door_name).await
+        let plant_id = event.get_plant_id();
+
+        let mut door = self.door_repository.get_door_state(plant_id, door_name)
             .ok_or_else(|| DockManagerError::DoorNotFound(door_name.to_string()))?;
 
         let analysis_results = self.context_analyzer.analyze(&door, &event).await;
@@ -137,7 +140,7 @@ impl EventHandler {
         }
 
         door.handle_event(&event)?;
-        self.state_manager.update_door(door).await?;
+        self.door_repository.update_door(plant_id, door)?;
 
         if !db_events.is_empty() {
             self.insert_db_events(&db_events).await?;
@@ -161,7 +164,8 @@ impl EventHandler {
     /// * `Err(DockManagerError)` if any insertion fails.
     pub async fn insert_db_events(&self, db_events: &[DbInsert]) -> DockManagerResult<()> {
         for event in db_events {
-            self.state_manager.insert_db_event(event.clone()).await?;
+            let plant_id = event.get_plant_id();
+            self.door_repository.insert_db_event(plant_id, event.clone()).await?;
         }
         Ok(())
     }
@@ -218,7 +222,7 @@ impl EventHandler {
                     .shipment_id(shipment_id.unwrap_or_default())
                     .build()
             },
-            context_analyzer::AlertType::TrailerDockedNotStarted { door_name,duration } => {
+            context_analyzer::AlertType::TrailerDockedNotStarted { door_name, duration } => {
                 Alert::new(alert_manager::AlertType::TrailerDockedNotStarted, door_name)
                     .add_info("has had a trailer docked without inspection or starting in wms for".to_string(), duration.to_string())
                     .build()
@@ -229,7 +233,7 @@ impl EventHandler {
                     .add_info("Trailer has been held hostage for ".to_string(), duration.to_string())
                     .build()
             },
-            // // Add other alert types as needed
+            // Add other alert types as needed
             _ => Alert::new(alert_manager::AlertType::ManualModeAlert, door.dock_name.clone()).build(),
         }
     }
@@ -243,10 +247,11 @@ impl EventHandler {
     ///
     /// * `alert_type` - The `AlertType` to convert into a monitoring item.
     /// * `door` - The `DockDoor` associated with the alert.
-    async fn add_to_monitoring_queue(&self, alert_type: context_analyzer::AlertType, _door: &DockDoor) {
+    async fn add_to_monitoring_queue(&self, alert_type: context_analyzer::AlertType, door: &DockDoor) {
         match alert_type {
             context_analyzer::AlertType::SuspendedDoor { door_name, shipment_id, user, .. } => {
                 self.monitoring_queue.add(MonitoringItem::SuspendedShipment {
+                    plant_id: door.plant_id.clone(),
                     door_name,
                     shipment_id: shipment_id.unwrap_or_default(),
                     suspended_at: Local::now().naive_local(),
@@ -255,12 +260,14 @@ impl EventHandler {
             },
             context_analyzer::AlertType::TrailerDocked { door_name, timestamp, success: true, .. } => {
                 self.monitoring_queue.add(MonitoringItem::TrailerDockedNotStarted {
+                    plant_id: door.plant_id.clone(),
                     door_name,
                     docked_at: timestamp,
                 }).await;
             },
             context_analyzer::AlertType::ShipmentStartedLoadNotReady { door_name, shipment_id, .. } => {
                 self.monitoring_queue.add(MonitoringItem::ShipmentStartedLoadNotReady {
+                    plant_id: door.plant_id.clone(),
                     door_name,
                     shipment_id,
                     started_at: Local::now().naive_local(),
@@ -268,6 +275,7 @@ impl EventHandler {
             },
             context_analyzer::AlertType::DockReady { door_name, timestamp, .. } => {
                 self.monitoring_queue.add(MonitoringItem::TrailerDockedNotStarted {
+                    plant_id: door.plant_id.clone(),
                     door_name,
                     docked_at: timestamp,
                 }).await;
