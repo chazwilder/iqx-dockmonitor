@@ -35,6 +35,7 @@ pub struct Settings {
     pub plants: Vec<PlantSettings>,
     pub alerts: AlertSettings,
     pub monitoring: MonitoringSettings,
+    pub batch_size: usize
 }
 
 /// Represents the configuration settings for a specific plant
@@ -331,6 +332,8 @@ impl Settings {
         if let Some(ref mut path) = s.logging.path {
             *path = env::current_dir()?.join(path.clone());
         }
+
+        s.batch_size = 1;
 
         Ok(s)
     }

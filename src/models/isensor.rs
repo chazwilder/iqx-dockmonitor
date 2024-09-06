@@ -11,57 +11,22 @@ use serde::{Deserialize, Serialize};
 /// Each sensor type holds its specific `SensorData`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DockSensor {
-    /// Sensor indicating if the dock is automatically disengaging.
     AutoDisengaging(SensorData),
-    /// Sensor indicating if the dock is automatically engaging.
     AutoEngaging(SensorData),
-    /// Sensor indicating the presence of a fault.
     FaultPresence(SensorData),
-    /// Sensor indicating a fault with the trailer doors.
     FaultTrailerDoors(SensorData),
-    /// Sensor indicating if the dock leveler is stored.
-    RhDockLvlrStored(SensorData),
-    /// Sensor indicating if the dock is ready.
     RhDockReady(SensorData),
-    /// Sensor indicating a fault with the dock lock.
     RhDokLockFault(SensorData),
-    /// Sensor indicating if the door is closed.
-    RhDoorClosed(SensorData),
-    /// Sensor indicating a fault with the door.
     RhDoorFault(SensorData),
-    /// Sensor indicating if the door is open.
     RhDoorOpen(SensorData),
-    /// Sensor indicating an emergency stop.
     RhEstop(SensorData),
-    /// Sensor indicating a fault with the leveler.
     RhLevelerFault(SensorData),
-    /// Sensor indicating if the leveler is ready.
     RhLevelrReady(SensorData),
-    /// Sensor indicating if the dock is in manual mode.
     RhManualMode(SensorData),
-    /// Sensor indicating if the restraint is engaged.
     RhRestraintEngaged(SensorData),
-    /// Sensor indicating if the restraint is unlocked.
-    RhRestraintUnlkd(SensorData),
-    /// Inside vertical sensor, left side (A).
-    SensorInsideVerticalLeftA(SensorData),
-    /// Inside vertical sensor, right side (B).
-    SensorInsideVerticalRightB(SensorData),
-    /// Outside lateral sensor, left side (C).
-    SensorOutsideLateralLeftC(SensorData),
-    /// Outside lateral sensor, right side (D).
-    SensorOutsideLateralRightD(SensorData),
-    /// Outside vertical sensor, left side (E).
-    SensorOutsideVerticalLeftE(SensorData),
-    /// Outside vertical sensor, right side (F).
-    SensorOutsideVerticalRightF(SensorData),
-    /// Sensor measuring the trailer angle.
     TrailerAngle(SensorData),
-    /// Sensor indicating if a trailer is at the door
     TrailerAtDoor(SensorData),
-    /// Sensor indicating if the trailer is centered.
     TrailerCentering(SensorData),
-    /// Sensor measuring the distance to the trailer
     TrailerDistance(SensorData),
 }
 
@@ -93,10 +58,8 @@ pub enum SensorType {
     AutoEngaging,
     FaultPresence,
     FaultTrailerDoors,
-    RhDockLvlrStored,
     RhDockReady,
     RhDokLockFault,
-    RhDoorClosed,
     RhDoorFault,
     RhDoorOpen,
     RhEstop,
@@ -104,13 +67,6 @@ pub enum SensorType {
     RhLevelrReady,
     RhManualMode,
     RhRestraintEngaged,
-    RhRestraintUnlkd,
-    SensorInsideVerticalLeftA,
-    SensorInsideVerticalRightB,
-    SensorOutsideLateralLeftC,
-    SensorOutsideLateralRightD,
-    SensorOutsideVerticalLeftE,
-    SensorOutsideVerticalRightF,
     TrailerAngle,
     TrailerAtDoor,
     TrailerCentering,
@@ -130,10 +86,8 @@ impl std::str::FromStr for SensorType {
             "AUTO_ENGAGING" => Ok(SensorType::AutoEngaging),
             "FAULT_PRESENCE" => Ok(SensorType::FaultPresence),
             "FAULT_TRAILER_DOORS" => Ok(SensorType::FaultTrailerDoors),
-            "RH_DOCK_LVLR_STORED" => Ok(SensorType::RhDockLvlrStored),
             "RH_DOCK_READY" => Ok(SensorType::RhDockReady),
             "RH_DOKLOCK_FAULT" => Ok(SensorType::RhDokLockFault),
-            "RH_DOOR_CLOSED" => Ok(SensorType::RhDoorClosed),
             "RH_DOOR_FAULT" => Ok(SensorType::RhDoorFault),
             "RH_DOOR_OPEN" => Ok(SensorType::RhDoorOpen),
             "RH_ESTOP" => Ok(SensorType::RhEstop),
@@ -141,13 +95,6 @@ impl std::str::FromStr for SensorType {
             "RH_LEVELR_READY" => Ok(SensorType::RhLevelrReady),
             "RH_MANUAL_MODE" => Ok(SensorType::RhManualMode),
             "RH_RESTRAINT_ENGAGED" => Ok(SensorType::RhRestraintEngaged),
-            "RH_RESTRAINT_UNLKD" => Ok(SensorType::RhRestraintUnlkd),
-            "SENSOR_INSIDE_VERTICAL_LEFT_A" => Ok(SensorType::SensorInsideVerticalLeftA),
-            "SENSOR_INSIDE_VERTICAL_RIGHT_B" => Ok(SensorType::SensorInsideVerticalRightB),
-            "SENSOR_OUTSIDE_LATERAL_LEFT_C" => Ok(SensorType::SensorOutsideLateralLeftC),
-            "SENSOR_OUTSIDE_LATERAL_RIGHT_D" => Ok(SensorType::SensorOutsideLateralRightD),
-            "SENSOR_OUTSIDE_VERTICAL_LEFT_E" => Ok(SensorType::SensorOutsideVerticalLeftE),
-            "SENSOR_OUTSIDE_VERTICAL_RIGHT_F" => Ok(SensorType::SensorOutsideVerticalRightF),
             "TRAILER_ANGLE" => Ok(SensorType::TrailerAngle),
             "TRAILER_AT_DOOR" => Ok(SensorType::TrailerAtDoor),
             "TRAILER_CENTERING" => Ok(SensorType::TrailerCentering),
@@ -190,10 +137,8 @@ impl DockSensor {
             "AUTO_ENGAGING" => DockSensor::AutoEngaging(sensor_data),
             "FAULT_PRESENCE" => DockSensor::FaultPresence(sensor_data),
             "FAULT_TRAILER_DOORS" => DockSensor::FaultTrailerDoors(sensor_data),
-            "RH_DOCK_LVLR_STORED" => DockSensor::RhDockLvlrStored(sensor_data),
             "RH_DOCK_READY" => DockSensor::RhDockReady(sensor_data),
-            "RH_DOkLOCK_FAULT" => DockSensor::RhDokLockFault(sensor_data),
-            "RH_DOOR_CLOSED" => DockSensor::RhDoorClosed(sensor_data),
+            "RH_DOKLOCK_FAULT" => DockSensor::RhDokLockFault(sensor_data),
             "RH_DOOR_FAULT" => DockSensor::RhDoorFault(sensor_data),
             "RH_DOOR_OPEN" => DockSensor::RhDoorOpen(sensor_data),
             "RH_ESTOP" => DockSensor::RhEstop(sensor_data),
@@ -201,13 +146,6 @@ impl DockSensor {
             "RH_LEVELR_READY" => DockSensor::RhLevelrReady(sensor_data),
             "RH_MANUAL_MODE" => DockSensor::RhManualMode(sensor_data),
             "RH_RESTRAINT_ENGAGED" => DockSensor::RhRestraintEngaged(sensor_data),
-            "RH_RESTRAINT_UNLKD" => DockSensor::RhRestraintUnlkd(sensor_data),
-            "SENSOR_INSIDE_VERTICAL_LEFT_A" => DockSensor::SensorInsideVerticalLeftA(sensor_data),
-            "SENSOR_INSIDE_VERTICAL_RIGHT_B" => DockSensor::SensorInsideVerticalRightB(sensor_data),
-            "SENSOR_OUTSIDE_LATERAL_LEFT_C" => DockSensor::SensorOutsideLateralLeftC(sensor_data),
-            "SENSOR_OUTSIDE_LATERAL_RIGHT_D" => DockSensor::SensorOutsideLateralRightD(sensor_data),
-            "SENSOR_OUTSIDE_VERTICAL_LEFT_E" => DockSensor::SensorOutsideVerticalLeftE(sensor_data),
-            "SENSOR_OUTSIDE_VERTICAL_RIGHT_F" => DockSensor::SensorOutsideVerticalRightF(sensor_data),
             "TRAILER_ANGLE" => DockSensor::TrailerAngle(sensor_data),
             "TRAILER_AT_DOOR" => DockSensor::TrailerAtDoor(sensor_data),
             "TRAILER_CENTERING" => DockSensor::TrailerCentering(sensor_data),
@@ -239,10 +177,8 @@ impl DockSensor {
             DockSensor::AutoEngaging(data) => data,
             DockSensor::FaultPresence(data) => data,
             DockSensor::FaultTrailerDoors(data) => data,
-            DockSensor::RhDockLvlrStored(data) => data,
             DockSensor::RhDockReady(data) => data,
             DockSensor::RhDokLockFault(data) => data,
-            DockSensor::RhDoorClosed(data) => data,
             DockSensor::RhDoorFault(data) => data,
             DockSensor::RhDoorOpen(data) => data,
             DockSensor::RhEstop(data) => data,
@@ -250,13 +186,6 @@ impl DockSensor {
             DockSensor::RhLevelrReady(data) => data,
             DockSensor::RhManualMode(data) => data,
             DockSensor::RhRestraintEngaged(data) => data,
-            DockSensor::RhRestraintUnlkd(data) => data,
-            DockSensor::SensorInsideVerticalLeftA(data) => data,
-            DockSensor::SensorInsideVerticalRightB(data) => data,
-            DockSensor::SensorOutsideLateralLeftC(data) => data,
-            DockSensor::SensorOutsideLateralRightD(data) => data,
-            DockSensor::SensorOutsideVerticalLeftE(data) => data,
-            DockSensor::SensorOutsideVerticalRightF(data) => data,
             DockSensor::TrailerAngle(data) => data,
             DockSensor::TrailerAtDoor(data) => data,
             DockSensor::TrailerCentering(data) => data,
@@ -271,10 +200,8 @@ impl DockSensor {
             DockSensor::AutoEngaging(data) => data,
             DockSensor::FaultPresence(data) => data,
             DockSensor::FaultTrailerDoors(data) => data,
-            DockSensor::RhDockLvlrStored(data) => data,
             DockSensor::RhDockReady(data) => data,
             DockSensor::RhDokLockFault(data) => data,
-            DockSensor::RhDoorClosed(data) => data,
             DockSensor::RhDoorFault(data) => data,
             DockSensor::RhDoorOpen(data) => data,
             DockSensor::RhEstop(data) => data,
@@ -282,13 +209,6 @@ impl DockSensor {
             DockSensor::RhLevelrReady(data) => data,
             DockSensor::RhManualMode(data) => data,
             DockSensor::RhRestraintEngaged(data) => data,
-            DockSensor::RhRestraintUnlkd(data) => data,
-            DockSensor::SensorInsideVerticalLeftA(data) => data,
-            DockSensor::SensorInsideVerticalRightB(data) => data,
-            DockSensor::SensorOutsideLateralLeftC(data) => data,
-            DockSensor::SensorOutsideLateralRightD(data) => data,
-            DockSensor::SensorOutsideVerticalLeftE(data) => data,
-            DockSensor::SensorOutsideVerticalRightF(data) => data,
             DockSensor::TrailerAngle(data) => data,
             DockSensor::TrailerAtDoor(data) => data,
             DockSensor::TrailerCentering(data) => data,

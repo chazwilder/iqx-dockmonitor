@@ -75,6 +75,9 @@ pub enum DockManagerError {
     /// Represents errors when receiving data from a channel.
     #[error("Channel receive error: {0}")]
     ChannelRecvError(String),
+
+    #[error("Plant not found: {0}")]
+    PlantNotFound(String),
 }
 
 impl<T> From<SendError<T>> for DockManagerError {

@@ -6,16 +6,19 @@ use tokio::sync::Mutex;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MonitoringItem {
     SuspendedShipment {
+        plant_id: String,
         door_name: String,
         shipment_id: String,
         suspended_at: NaiveDateTime,
         user: String
     },
     TrailerDockedNotStarted {
+        plant_id: String,
         door_name: String,
         docked_at: NaiveDateTime,
     },
     ShipmentStartedLoadNotReady {
+        plant_id: String,
         door_name: String,
         shipment_id: String,
         started_at: NaiveDateTime,

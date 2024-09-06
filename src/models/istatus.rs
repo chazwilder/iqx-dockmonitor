@@ -37,6 +37,9 @@ pub enum LoadingStatus {
 /// Represents the status of a dock door as retrieved from the WMS.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, FromRow)]
 pub struct WmsDoorStatus {
+    /// The plant associated with the event
+    #[sqlx(rename = "PLANT")]
+    pub plant: String,
     /// The name of the dock door.
     pub dock_name: String,
     /// The shipment currently assigned to the dock door (if any).

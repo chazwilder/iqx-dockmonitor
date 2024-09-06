@@ -5,7 +5,7 @@ use crate::alerting::alert_manager::{AlertConfig, AlertManager};
 use crate::analysis::create_default_analyzer;
 use crate::config::Settings;
 use crate::controllers::dock_door::DockDoorController;
-use crate::event_handling;
+use crate::event_handling::EventHandler;
 use crate::monitoring::{MonitoringQueue, MonitoringWorker};
 use crate::rules::{DynamicRuleManager, WmsShipmentStatus};
 use crate::services::db::DatabaseService;
@@ -20,7 +20,7 @@ pub struct AppContext {
     pub alert_manager: Arc<AlertManager>,
     pub db_service: DatabaseService,
     pub state_manager: Arc<DockDoorStateManager>,
-    pub event_handler: Arc<event_handling::EventHandler>,
+    pub event_handler: Arc<EventHandler>,
     pub dock_door_controller: Arc<DockDoorController>,
     pub monitoring_worker: MonitoringWorker,
 }
@@ -66,37 +66,39 @@ pub async fn initialize() -> Result<AppContext> {
 
     let monitoring_queue = Arc::new(MonitoringQueue::new());
 
-    let (state_manager, event_handler) = DockDoorStateManager::new(
-        &settings,
-        context_analyzer,
+    let (state_manager, event_receiver) = DockDoorStateManager::new(&settings, Arc::new(db_service.clone()));
+    let event_handler = EventHandler::new(
+        event_receiver,
+        state_manager.get_door_repository(),
+        Arc::new(context_analyzer),
         Arc::clone(&alert_manager),
-        Arc::clone(&monitoring_queue)
+        Arc::clone(&monitoring_queue),
     );
-    let state_manager = Arc::new(state_manager);
-    let event_handler = Arc::new(event_handler);
 
     let dock_door_controller = Arc::new(DockDoorController::new(
         (*settings).clone(),
         plc_service.clone(),
-        Arc::clone(&state_manager),
-        Arc::clone(&event_handler),
+        Arc::new(state_manager.clone()),
+        Arc::new(event_handler.clone()),
         db_service.clone(),
     ));
 
     let monitoring_worker = MonitoringWorker::new(
         Arc::clone(&monitoring_queue),
-        Arc::clone(&state_manager),
+        state_manager.get_door_repository(),
         Arc::clone(&alert_manager),
         Arc::clone(&settings),
     );
+
+
 
     Ok(AppContext {
         settings,
         plc_service,
         alert_manager,
         db_service,
-        state_manager,
-        event_handler,
+        state_manager: Arc::new(state_manager),
+        event_handler: Arc::new(event_handler),
         dock_door_controller,
         monitoring_worker,
     })

@@ -4,8 +4,8 @@ use tokio::time::interval;
 use tracing::{info, warn, error};
 use crate::alerting::alert_manager::{AlertManager, Alert, AlertType};
 use crate::config::Settings;
-use crate::models::LoadingStatus;
-use crate::state_management::DockDoorStateManager;
+use crate::models::{LoadingStatus};
+use crate::state_management::door_state_repository::DoorStateRepository;
 use crate::utils::format_duration;
 use super::monitoring_queue::{MonitoringQueue, MonitoringItem};
 
@@ -13,7 +13,7 @@ use super::monitoring_queue::{MonitoringQueue, MonitoringItem};
 #[derive(Clone)]
 pub struct MonitoringWorker {
     queue: Arc<MonitoringQueue>,
-    state_manager: Arc<DockDoorStateManager>,
+    door_repository: Arc<DoorStateRepository>,
     alert_manager: Arc<AlertManager>,
     settings: Arc<Settings>,
 }
@@ -24,7 +24,7 @@ impl MonitoringWorker {
     /// # Arguments
     ///
     /// * `queue` - The monitoring queue to process items from
-    /// * `state_manager` - The state manager to retrieve dock door information
+    /// * `door_repository` - The repository to retrieve door information
     /// * `alert_manager` - The alert manager to send alerts
     /// * `settings` - The application settings
     ///
@@ -33,13 +33,13 @@ impl MonitoringWorker {
     /// A new MonitoringWorker instance
     pub fn new(
         queue: Arc<MonitoringQueue>,
-        state_manager: Arc<DockDoorStateManager>,
+        door_repository: Arc<DoorStateRepository>,
         alert_manager: Arc<AlertManager>,
         settings: Arc<Settings>,
     ) -> Self {
         Self {
             queue,
-            state_manager,
+            door_repository,
             alert_manager,
             settings
         }
@@ -85,14 +85,14 @@ impl MonitoringWorker {
     /// A boolean indicating whether the item should be requeued
     async fn process_item(&self, item: MonitoringItem) -> bool {
         match item {
-            MonitoringItem::SuspendedShipment { door_name, shipment_id, suspended_at, user } => {
-                self.process_suspended_shipment(door_name, shipment_id, suspended_at, user).await
+            MonitoringItem::SuspendedShipment {plant_id,  door_name, shipment_id, suspended_at, user } => {
+                self.process_suspended_shipment(plant_id, door_name, shipment_id, suspended_at, user).await
             },
-            MonitoringItem::TrailerDockedNotStarted { door_name, docked_at } => {
-                self.process_trailer_docked_not_started(door_name, docked_at).await
+            MonitoringItem::TrailerDockedNotStarted {plant_id, door_name, docked_at } => {
+                self.process_trailer_docked_not_started(plant_id, door_name, docked_at).await
             },
-            MonitoringItem::ShipmentStartedLoadNotReady { door_name, shipment_id, started_at } => {
-                self.process_shipment_started_load_not_ready(door_name, shipment_id, started_at).await
+            MonitoringItem::ShipmentStartedLoadNotReady {plant_id, door_name, shipment_id, started_at } => {
+                self.process_shipment_started_load_not_ready(plant_id, door_name, shipment_id, started_at).await
             },
         }
     }
@@ -109,11 +109,10 @@ impl MonitoringWorker {
     /// # Returns
     ///
     /// A boolean indicating whether the item should be requeued
-    async fn process_suspended_shipment(&self, door_name: String, shipment_id: String, suspended_at: NaiveDateTime, user: String) -> bool {
+    async fn process_suspended_shipment(&self, plant_id: String, door_name: String, shipment_id: String, suspended_at: NaiveDateTime, user: String) -> bool {
         info!("Processing SuspendedShipment for door: {}, shipment: {}", door_name, shipment_id);
-        let door = self.state_manager.get_door(&door_name).await;
-        if let Some(door) = door {
-            if door.loading_status == LoadingStatus::Suspended {
+        if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name) {
+            if door_state.loading_status == LoadingStatus::Suspended {
                 let duration = Local::now().naive_local().signed_duration_since(suspended_at);
                 let alert_threshold = Duration::seconds(self.settings.monitoring.suspended_shipment.alert_threshold as i64);
                 let repeat_interval = Duration::seconds(self.settings.monitoring.suspended_shipment.repeat_interval as i64);
@@ -153,12 +152,11 @@ impl MonitoringWorker {
     /// # Returns
     ///
     /// A boolean indicating whether the item should be requeued
-    async fn process_trailer_docked_not_started(&self, door_name: String, docked_at: NaiveDateTime) -> bool {
+    async fn process_trailer_docked_not_started(&self, plant_id: String, door_name: String, docked_at: NaiveDateTime) -> bool {
         info!("Processing TrailerDockedNotStarted for door: {}", door_name);
-        let door = self.state_manager.get_door(&door_name).await;
-        if let Some(door) = door {
-            info!("Door state: {:?}, Loading status: {:?}", door.trailer_state, door.loading_status);
-            let loading_started = matches!(door.loading_status,
+        if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name) {
+            info!("Door state: {:?}, Loading status: {:?}", door_state.trailer_state, door_state.loading_status);
+            let loading_started = matches!(door_state.loading_status,
                 LoadingStatus::Loading |
                 LoadingStatus::Suspended |
                 LoadingStatus::Completed |
@@ -168,7 +166,9 @@ impl MonitoringWorker {
                 LoadingStatus::StartedWithAnticipation
             );
 
-            let door_check = door.sensors.get("TRAILER_AT_DOOR").unwrap().get_sensor_data().current_value.unwrap();
+            let door_check = door_state.sensors.get("TRAILER_AT_DOOR")
+                .and_then(|sensor| sensor.get_sensor_data().current_value)
+                .unwrap_or(0);
 
             if door_check == 0 {
                 info!("Trailer is not at door {} sensor value = {}", door_name, door_check);
@@ -211,11 +211,10 @@ impl MonitoringWorker {
     /// # Returns
     ///
     /// A boolean indicating whether the item should be requeued
-    async fn process_shipment_started_load_not_ready(&self, door_name: String, shipment_id: String, started_at: NaiveDateTime) -> bool {
+    async fn process_shipment_started_load_not_ready(&self, plant_id: String, door_name: String, shipment_id: String, started_at: NaiveDateTime) -> bool {
         info!("Processing ShipmentStartedLoadNotReady for door: {}, shipment: {}", door_name, shipment_id);
-        let door = self.state_manager.get_door(&door_name).await;
-        if let Some(door) = door {
-            if !door.check_loading_readiness() {
+        if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name) {
+            if !door_state.check_loading_readiness() {
                 let duration = Local::now().naive_local().signed_duration_since(started_at);
                 let alert_threshold = Duration::seconds(self.settings.monitoring.shipment_started_load_not_ready.alert_threshold as i64);
                 let repeat_interval = Duration::seconds(self.settings.monitoring.shipment_started_load_not_ready.repeat_interval as i64);
