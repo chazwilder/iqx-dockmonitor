@@ -164,11 +164,19 @@ impl MonitoringWorker {
                 LoadingStatus::Completed |
                 LoadingStatus::WaitingForExit |
                 LoadingStatus::CancelledShipment |
+                LoadingStatus::Idle |
                 LoadingStatus::StartedWithAnticipation
             );
 
+            let door_check = door.sensors.get("TRAILER_AT_DOOR").unwrap().get_sensor_data().current_value.unwrap();
+
+            if door_check == 0 {
+                info!("Trailer is not at door {} sensor value = {}", door_name, door_check);
+                return false // Remove from queue
+            }
+
             if loading_started {
-                info!("Loading has started or progressed for door {}", door_name);
+                info!("Loading is started or progressed for door {}", door_name);
                 false // Remove from queue
             } else {
                 let duration = Local::now().naive_local().signed_duration_since(docked_at);
