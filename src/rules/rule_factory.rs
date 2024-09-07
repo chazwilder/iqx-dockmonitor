@@ -80,7 +80,7 @@ impl RuleFactory {
         Ok(Arc::new(ManualInterventionRule::new(config.clone())))
     }
 
-    fn create_trailer_undocking_rule(&self, _config: &Value) -> Result<Arc<dyn AnalysisRule>> {
-        Ok(Arc::new(TrailerUndockingRule))
+    fn create_trailer_undocking_rule(&self, config: &Value) -> Result<Arc<dyn AnalysisRule>> {
+        Ok(Arc::new(TrailerUndockingRule::new(config.clone())))
     }
 }

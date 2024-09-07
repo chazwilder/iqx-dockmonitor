@@ -11,7 +11,9 @@ use tokio::sync::Mutex;
 use crate::config::Settings;
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::models::{DbInsert, WmsDoorStatus, WmsEvent};
+use crate::models::consolidated_dock_event::ConsolidatedDockEvent;
 use crate::repositories::{DoorEventRepository, WmsStatusRepository, Repository};
+use crate::repositories::consolidated::ConsolidatedDockEventRepository;
 use crate::services::DatabaseClient;
 
 /// A factory for creating and managing database connections on a per-plant basis
@@ -122,6 +124,20 @@ impl DatabaseService {
         for event in events {
             repo.insert(&event).await?;
         }
+        Ok(())
+    }
+
+    /// Inserts a consolidated dock event into the database.
+    ///
+    /// # Arguments
+    /// * `event`: The `ConsolidatedDockEvent` to be inserted
+    ///
+    /// # Returns
+    /// * `Ok(())` if the insertion was successful
+    /// * `Err(DockManagerError)` if there was an error during the database operation
+    pub async fn insert_consolidated_event(&self, event: &ConsolidatedDockEvent) -> Result<(), DockManagerError> {
+        let repo = ConsolidatedDockEventRepository::new(self.local_client.clone());
+        repo.insert(event).await?;
         Ok(())
     }
 

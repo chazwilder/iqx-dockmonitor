@@ -5,12 +5,12 @@
 
 use std::collections::HashSet;
 use chrono::NaiveDateTime;
-use derive_more::{Constructor, FromStr};
+use derive_more::{Constructor, Display, FromStr};
 use serde::{Deserialize, Serialize};
 use sqlx_oldapi::FromRow;
 
 /// Represents the various loading statuses a shipment can have in the WMS.
-#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize, FromStr)]
+#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize, FromStr, Display)]
 pub enum LoadingStatus {
     /// The dock is idle, not assigned to any shipment.
     Idle,
@@ -56,6 +56,7 @@ pub struct WmsDoorStatus {
     pub upper_ship_limit: i32,
     /// The current number of shipments in the loading state.
     pub shipments_loading: i32,
+    pub is_preload: Option<i32>,
 }
 
 /// Represents an event related to a shipment in the WMS
@@ -118,3 +119,4 @@ impl AssignedShipment {
         self.events.clear();
     }
 }
+

@@ -107,6 +107,24 @@ impl DockDoorEvent {
             result_code: db_insert.SUCCESS,
         })
     }
+
+    pub fn get_shipment_id(&self) -> Option<String> {
+        match self {
+            DockDoorEvent::ShipmentAssigned(e) => Some(e.shipment_id.clone()),
+            DockDoorEvent::ShipmentUnassigned(e) => Some(e.shipment_id.clone()),
+            DockDoorEvent::DockAssigned(e) => Some(e.shipment_id.clone()),
+            DockDoorEvent::DockUnassigned(e) => Some(e.shipment_id.clone()),
+            DockDoorEvent::TrailerDocked(e) => Some(e.shipment_id.clone()),
+            DockDoorEvent::TrailerDeparted(e) => Some(e.shipment_id.clone()),
+            DockDoorEvent::LoadingStarted(e) => Some(e.shipment_id.clone()),
+            DockDoorEvent::LoadingCompleted(e) => Some(e.shipment_id.clone()),
+            DockDoorEvent::LoadingStatusChanged(_) => None,
+            DockDoorEvent::WmsEvent(e) => Some(e.shipment_id.clone()),
+            DockDoorEvent::SensorStateChanged(_) => None,
+            DockDoorEvent::DoorStateChanged(_) => None,
+            DockDoorEvent::TrailerStateChanged(_) => None,
+        }
+    }
 }
 
 /// A wrapper for WMS events, providing additional context for the Dock Manager

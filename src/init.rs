@@ -73,6 +73,7 @@ pub async fn initialize() -> Result<AppContext> {
         Arc::new(context_analyzer),
         Arc::clone(&alert_manager),
         Arc::clone(&monitoring_queue),
+        Arc::new(db_service.clone()),
     );
 
     let dock_door_controller = Arc::new(DockDoorController::new(

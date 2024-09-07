@@ -81,7 +81,7 @@ impl DockDoorController {
         info!("DOCK DOOR CONTROLLER: Processing {} events...", events.len());
         let mut db_events = Vec::new();
         for event in events {
-            let new_db_events = self.event_handler.send_event(event).await?;
+            let new_db_events = self.event_handler.process_event(event).await?;
             db_events.extend(new_db_events);
         }
         info!("Event processing completed in {:?}", event_start.elapsed());
@@ -173,7 +173,7 @@ impl DockDoorController {
 
         let mut db_events = Vec::new();
         for event in all_events {
-            let new_db_events = self.event_handler.send_event(event).await?;
+            let new_db_events = self.event_handler.process_event(event).await?;
             db_events.extend(new_db_events);
         }
 

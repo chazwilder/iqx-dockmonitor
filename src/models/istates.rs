@@ -101,3 +101,11 @@ pub enum TrailerPositionState {
     /// The trailer is not in the proper position
     Improper,
 }
+
+#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize, FromStr)]
+pub enum LoadTypeState {
+    /// The Load is a Live Load Shipment
+    LiveLoad,
+    /// The Load is a Prelaod Load Shipment
+    Preload,
+}

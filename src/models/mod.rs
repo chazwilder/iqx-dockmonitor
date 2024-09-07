@@ -5,6 +5,7 @@ pub mod isensor;
 pub mod ievents;
 pub mod istates;
 pub mod idb_log;
+pub mod consolidated_dock_event;
 
 pub use idoor::*;
 pub use istatus::*;

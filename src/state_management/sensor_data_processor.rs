@@ -1,6 +1,11 @@
 use std::sync::Arc;
+use tracing::{info, debug};
 use crate::errors::DockManagerError;
-use crate::models::{DockDoor, DockDoorEvent, DockLockState, DoorPosition, DoorState, DoorStateChangedEvent, FaultState, LevelerPosition, ManualMode, PlcVal, RestraintState, SensorStateChangedEvent, TrailerPositionState, TrailerState, TrailerStateChangedEvent};
+use crate::models::{
+    DockDoor, DockDoorEvent, DockLockState, DoorPosition, DoorState, DoorStateChangedEvent,
+    FaultState, LevelerPosition, ManualMode, PlcVal, RestraintState, SensorStateChangedEvent,
+    TrailerPositionState, TrailerState, TrailerStateChangedEvent
+};
 use crate::state_management::door_state_repository::DoorStateRepository;
 
 /// Processes sensor data updates for the dock monitoring system.
@@ -71,169 +76,185 @@ impl SensorDataProcessor {
         let sensor_evaluation = door.update_sensor(&sensor_value.sensor_name, Some(sensor_value.value))?;
 
         if sensor_evaluation.changed {
-            let event = DockDoorEvent::SensorStateChanged(SensorStateChangedEvent {
+            events.push(DockDoorEvent::SensorStateChanged(SensorStateChangedEvent {
                 plant_id: door.plant_id.clone(),
                 dock_name: door.dock_name.clone(),
                 sensor_name: sensor_value.sensor_name.clone(),
                 old_value: sensor_evaluation.old_value,
                 new_value: sensor_evaluation.new_value,
                 timestamp: chrono::Local::now().naive_local(),
-            });
-            events.push(event);
+            }));
 
-            match sensor_value.sensor_name.as_str() {
-                "AUTO_DISENGAGING" => {
-                    door.restraint_state = if sensor_value.value == 1 {
-                        RestraintState::Unlocking
-                    } else {
-                        RestraintState::Unlocked
-                    };
-                },
-                "AUTO_ENGAGING" => {
-                    door.restraint_state = if sensor_value.value == 1 {
-                        RestraintState::Locking
-                    } else {
-                        RestraintState::Locked
-                    };
-                },
-                "FAULT_PRESENCE" => {
-                    door.fault_state = if sensor_value.value == 1 {
-                        FaultState::FaultPresent
-                    } else {
-                        FaultState::NoFault
-                    };
-                },
-                "FAULT_TRAILER_DOORS" => {
-                    door.trailer_door_fault = sensor_value.value == 1;
-                },
-                "RH_DOCK_READY" => {
-                    if sensor_value.value == 1 && door.door_state == DoorState::TrailerDocked {
-                        door.door_state = DoorState::DoorReady;
-                        let event = DockDoorEvent::DoorStateChanged(DoorStateChangedEvent {
-                            plant_id: door.plant_id.clone(),
-                            dock_name: door.dock_name.clone(),
-                            old_state: DoorState::TrailerDocked,
-                            new_state: DoorState::DoorReady,
-                            timestamp: chrono::Local::now().naive_local(),
-                        });
-                        events.push(event);
-                    }
-                },
-                "RH_DOKLOCK_FAULT" => {
-                    door.dock_lock_fault = sensor_value.value == 1;
-                },
-                "RH_DOOR_FAULT" => {
-                    door.door_fault = sensor_value.value == 1;
-                },
-                "RH_DOOR_OPEN" => {
-                    door.door_position = if sensor_value.value == 1 {
-                        DoorPosition::Open
-                    } else {
-                        DoorPosition::Closed
-                    };
-                },
-                "RH_ESTOP" => {
-                    door.emergency_stop = sensor_value.value == 1;
-                    if door.emergency_stop {
-                        door.manual_mode = ManualMode::Enabled;
-                    }
-                },
-                "RH_LEVELER_FAULT" => {
-                    door.leveler_fault = sensor_value.value == 1;
-                },
-                "RH_LEVELR_READY" => {
-                    door.leveler_position = if sensor_value.value == 1 {
-                        LevelerPosition::Extended
-                    } else {
-                        LevelerPosition::Stored
-                    };
-                },
-                "RH_MANUAL_MODE" => {
-                    door.manual_mode = if sensor_value.value == 1 {
-                        ManualMode::Enabled
-                    } else {
-                        ManualMode::Disabled
-                    };
-                    if door.manual_mode == ManualMode::Enabled {
-                        door.increment_manual_intervention();
-                    }
-                },
-                "RH_RESTRAINT_ENGAGED" => {
-                    door.dock_lock_state = if sensor_value.value == 1 {
-                        DockLockState::Engaged
-                    } else {
-                        DockLockState::Disengaged
-                    };
-                },
-                "TRAILER_ANGLE" | "TRAILER_CENTERING" | "TRAILER_DISTANCE" => {
-                    door.trailer_position_state = if sensor_value.value == 0 {
-                        TrailerPositionState::Proper
-                    } else {
-                        TrailerPositionState::Improper
-                    };
-                },
-                "TRAILER_AT_DOOR" => {
-                    let new_trailer_state = if sensor_value.value == 1 {
-                        TrailerState::Docked
-                    } else {
-                        TrailerState::Undocked
-                    };
-
-                    if door.trailer_state != new_trailer_state {
-                        let event = DockDoorEvent::TrailerStateChanged(TrailerStateChangedEvent {
-                            plant_id: door.plant_id.clone(),
-                            dock_name: door.dock_name.clone(),
-                            old_state: door.trailer_state,
-                            new_state: new_trailer_state,
-                            timestamp: chrono::Local::now().naive_local(),
-                        });
-                        events.push(event);
-                        door.trailer_state = new_trailer_state;
-
-                        if new_trailer_state == TrailerState::Docked {
-                            door.door_state = DoorState::TrailerDocked;
-                        }
-                    }
-                },
-                _ => {
-                    tracing::debug!("Unhandled sensor type: {}", sensor_value.sensor_name);
-                }
-            }
-
-            // Interlock system logic
-            if door.trailer_state == TrailerState::Docked &&
-                door.manual_mode == ManualMode::Disabled &&
-                door.trailer_position_state == TrailerPositionState::Proper
-            {
-                if door.restraint_state == RestraintState::Unlocked {
-                    door.restraint_state = RestraintState::Locking;
-                } else if door.restraint_state == RestraintState::Locked &&
-                    door.door_position == DoorPosition::Closed
-                {
-                    door.door_position = DoorPosition::Open;
-                } else if door.door_position == DoorPosition::Open &&
-                    door.leveler_position == LevelerPosition::Stored
-                {
-                    door.leveler_position = LevelerPosition::Extended;
-                } else if door.leveler_position == LevelerPosition::Extended {
-                    door.door_state = DoorState::DoorReady;
-                }
-            }
-
-            // Check if the door is ready for loading after sensor updates
-            if door.check_loading_readiness() && door.door_state != DoorState::DoorReady {
-                door.door_state = DoorState::DoorReady;
-                let event = DockDoorEvent::DoorStateChanged(DoorStateChangedEvent {
-                    plant_id: door.plant_id.clone(),
-                    dock_name: door.dock_name.clone(),
-                    old_state: door.door_state,
-                    new_state: DoorState::DoorReady,
-                    timestamp: chrono::Local::now().naive_local(),
-                });
-                events.push(event);
-            }
+            self.update_door_state(door, sensor_value, &mut events)?;
         }
 
+        self.apply_interlock_logic(door, &mut events)?;
+        self.check_loading_readiness(door, &mut events)?;
+
         Ok(events)
+    }
+
+    /// Updates the door state based on the sensor value.
+    ///
+    /// # Arguments
+    ///
+    /// * `door` - A mutable reference to the `DockDoor` being updated.
+    /// * `sensor_value` - The `PlcVal` containing the sensor update.
+    /// * `events` - A mutable reference to the vector of events being generated.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or a `DockManagerError` if processing fails.
+    fn update_door_state(&self, door: &mut DockDoor, sensor_value: &PlcVal, events: &mut Vec<DockDoorEvent>) -> Result<(), DockManagerError> {
+        match sensor_value.sensor_name.as_str() {
+            "AUTO_DISENGAGING" => {
+                door.restraint_state = if sensor_value.value == 1 { RestraintState::Unlocking } else { RestraintState::Unlocked };
+            },
+            "AUTO_ENGAGING" => {
+                door.restraint_state = if sensor_value.value == 1 { RestraintState::Locking } else { RestraintState::Locked };
+            },
+            "FAULT_PRESENCE" => {
+                door.fault_state = if sensor_value.value == 1 { FaultState::FaultPresent } else { FaultState::NoFault };
+            },
+            "FAULT_TRAILER_DOORS" => {
+                door.trailer_door_fault = sensor_value.value == 1;
+            },
+            "RH_DOCK_READY" => {
+                if sensor_value.value == 1 && door.door_state == DoorState::TrailerDocked {
+                    self.change_door_state(door, DoorState::DoorReady, events)?;
+                }
+            },
+            "RH_DOKLOCK_FAULT" => {
+                door.dock_lock_fault = sensor_value.value == 1;
+            },
+            "RH_DOOR_FAULT" => {
+                door.door_fault = sensor_value.value == 1;
+            },
+            "RH_DOOR_OPEN" => {
+                door.door_position = if sensor_value.value == 1 { DoorPosition::Open } else { DoorPosition::Closed };
+            },
+            "RH_ESTOP" => {
+                door.emergency_stop = sensor_value.value == 1;
+                if door.emergency_stop {
+                    door.manual_mode = ManualMode::Enabled;
+                }
+            },
+            "RH_LEVELER_FAULT" => {
+                door.leveler_fault = sensor_value.value == 1;
+            },
+            "RH_LEVELR_READY" => {
+                door.leveler_position = if sensor_value.value == 1 { LevelerPosition::Extended } else { LevelerPosition::Stored };
+            },
+            "RH_MANUAL_MODE" => {
+                door.manual_mode = if sensor_value.value == 1 { ManualMode::Enabled } else { ManualMode::Disabled };
+                if door.manual_mode == ManualMode::Enabled {
+                    door.increment_manual_intervention();
+                }
+            },
+            "RH_RESTRAINT_ENGAGED" => {
+                door.dock_lock_state = if sensor_value.value == 1 { DockLockState::Engaged } else { DockLockState::Disengaged };
+            },
+            "TRAILER_ANGLE" | "TRAILER_CENTERING" | "TRAILER_DISTANCE" => {
+                door.trailer_position_state = if sensor_value.value == 0 { TrailerPositionState::Proper } else { TrailerPositionState::Improper };
+            },
+            "TRAILER_AT_DOOR" => {
+                let new_trailer_state = if sensor_value.value == 1 {
+                    door.set_docking_time();
+                    TrailerState::Docked
+                } else {
+                    door.clear_docking_time();
+                    TrailerState::Undocked
+                };
+                if door.trailer_state != new_trailer_state {
+                    events.push(DockDoorEvent::TrailerStateChanged(TrailerStateChangedEvent {
+                        plant_id: door.plant_id.clone(),
+                        dock_name: door.dock_name.clone(),
+                        old_state: door.trailer_state,
+                        new_state: new_trailer_state,
+                        timestamp: chrono::Local::now().naive_local(),
+                    }));
+                    door.trailer_state = new_trailer_state;
+                    if new_trailer_state == TrailerState::Docked {
+                        self.change_door_state(door, DoorState::TrailerDocked, events)?;
+                    }
+                }
+            },
+            _ => {
+                debug!("Unhandled sensor type: {}", sensor_value.sensor_name);
+            }
+        }
+        Ok(())
+    }
+
+    /// Applies the interlock system logic based on the current door state.
+    ///
+    /// # Arguments
+    ///
+    /// * `door` - A mutable reference to the `DockDoor` being updated.
+    /// * `events` - A mutable reference to the vector of events being generated.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or a `DockManagerError` if processing fails.
+    fn apply_interlock_logic(&self, door: &mut DockDoor, events: &mut Vec<DockDoorEvent>) -> Result<(), DockManagerError> {
+        if door.trailer_state == TrailerState::Docked &&
+            door.manual_mode == ManualMode::Disabled &&
+            door.trailer_position_state == TrailerPositionState::Proper
+        {
+            if door.restraint_state == RestraintState::Unlocked {
+                door.restraint_state = RestraintState::Locking;
+            } else if door.restraint_state == RestraintState::Locked && door.door_position == DoorPosition::Closed {
+                door.door_position = DoorPosition::Open;
+            } else if door.door_position == DoorPosition::Open && door.leveler_position == LevelerPosition::Stored {
+                door.leveler_position = LevelerPosition::Extended;
+            } else if door.leveler_position == LevelerPosition::Extended {
+                self.change_door_state(door, DoorState::DoorReady, events)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Checks if the door is ready for loading and updates the state if necessary.
+    ///
+    /// # Arguments
+    ///
+    /// * `door` - A mutable reference to the `DockDoor` being checked.
+    /// * `events` - A mutable reference to the vector of events being generated.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or a `DockManagerError` if processing fails.
+    fn check_loading_readiness(&self, door: &mut DockDoor, events: &mut Vec<DockDoorEvent>) -> Result<(), DockManagerError> {
+        if door.check_loading_readiness() && door.door_state != DoorState::DoorReady {
+            self.change_door_state(door, DoorState::DoorReady, events)?;
+        }
+        Ok(())
+    }
+
+    /// Changes the door state and generates a DoorStateChanged event.
+    ///
+    /// # Arguments
+    ///
+    /// * `door` - A mutable reference to the `DockDoor` being updated.
+    /// * `new_state` - The new `DoorState` to set.
+    /// * `events` - A mutable reference to the vector of events being generated.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or a `DockManagerError` if processing fails.
+    fn change_door_state(&self, door: &mut DockDoor, new_state: DoorState, events: &mut Vec<DockDoorEvent>) -> Result<(), DockManagerError> {
+        if door.door_state != new_state {
+            let old_state = door.door_state;
+            door.door_state = new_state;
+            events.push(DockDoorEvent::DoorStateChanged(DoorStateChangedEvent {
+                plant_id: door.plant_id.clone(),
+                dock_name: door.dock_name.clone(),
+                old_state,
+                new_state,
+                timestamp: chrono::Local::now().naive_local(),
+            }));
+            info!("Door state changed for {}: {:?} -> {:?}", door.dock_name, old_state, new_state);
+        }
+        Ok(())
     }
 }
