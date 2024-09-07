@@ -56,7 +56,7 @@ pub struct WmsDoorStatus {
     pub upper_ship_limit: i32,
     /// The current number of shipments in the loading state.
     pub shipments_loading: i32,
-    pub is_preload: Option<u8>,
+    pub is_preload: Option<bool>,
 }
 
 /// Represents an event related to a shipment in the WMS

@@ -525,7 +525,7 @@ impl DockDoor {
 
         self.wms_shipment_status = wms_status.wms_shipment_status.clone();
         if wms_status.is_preload.is_some() {
-            self.shipment_type = if wms_status.is_preload.unwrap() == 1 { Some(LoadTypeState::Preload) } else { Some(LoadTypeState::LiveLoad) };
+            self.shipment_type = if wms_status.is_preload.unwrap() == true { Some(LoadTypeState::Preload) } else { Some(LoadTypeState::LiveLoad) };
         }
 
         Ok(events)
