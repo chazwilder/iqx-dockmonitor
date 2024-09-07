@@ -8,7 +8,7 @@ use crate::state_management::database_event_manager::DatabaseEventManager;
 use crate::state_management::event_dispatcher::EventDispatcher;
 use tokio::sync::oneshot;
 use std::sync::Arc;
-use tracing::error;
+use log::error;
 
 /// Represents the different commands that can be processed by the CommandProcessor
 #[derive(Debug)]

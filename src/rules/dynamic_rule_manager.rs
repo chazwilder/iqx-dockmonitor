@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, Context};
-use tracing::info;
+use log::info;
 use crate::analysis::context_analyzer::AnalysisRule;
 use crate::rules::rule_factory::RuleFactory;
 

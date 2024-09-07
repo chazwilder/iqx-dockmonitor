@@ -9,7 +9,7 @@ use chrono::NaiveDateTime;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::str::FromStr;
-use tracing::info;
+use log::info;
 use crate::config::PlantSettings;
 use crate::models::isensor::DockSensor;
 use crate::models::istates::{DoorState, TrailerState, ManualMode, DockLockState, DoorPosition, LevelerPosition, FaultState};
@@ -418,7 +418,7 @@ impl DockDoor {
     ///
     /// * `Ok(())` 
     fn handle_trailer_state_changed(&mut self, event: &TrailerStateChangedEvent) -> Result<(), DockManagerError> {
-        tracing::debug!("trailer state changed: {:?}", event);
+        log::debug!("trailer state changed: {:?}", event);
         Ok(())
     }
 

@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType, LogEntry};
 use crate::models::{DockDoor, DockDoorEvent, LoadingStatus, TrailerState, ManualMode};
-use tracing::{debug};
+use log::{debug};
 
 /// Configuration for the TrailerHostageRule
 #[derive(Debug, Clone, Serialize, Deserialize)]

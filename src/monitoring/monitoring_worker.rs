@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use chrono::{Local, Duration, NaiveDateTime};
 use tokio::time::interval;
-use tracing::{info, warn, error};
+use log::{info, warn, error};
 use crate::alerting::alert_manager::{AlertManager, Alert, AlertType};
 use crate::config::Settings;
 use crate::models::LoadingStatus;

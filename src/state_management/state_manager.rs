@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use tokio::sync::mpsc::Receiver;
-use tracing::{info, error};
+use log::{info, error};
 use crate::config::Settings;
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::models::{DockDoorEvent, PlcVal, WmsDoorStatus, DbInsert, WmsEvent, DockDoor};

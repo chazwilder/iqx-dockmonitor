@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::time::Instant;
-use tracing::{info, error};
+use log::{info, error};
 use futures::future::join_all;
 use crate::models::PlcVal;
 use crate::errors::{DockManagerError, DockManagerResult};

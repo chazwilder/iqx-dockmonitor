@@ -1,18 +1,24 @@
-
+use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
 use anyhow::Result;
-use tracing::{error, info};
+use log::{error, info};
 use tokio::signal::ctrl_c;
 use tokio::time::interval;
 use iqx_dockmonitor::init;
 
 #[tokio::main]
 async fn main() {
+    init_logger().expect("TODO: panic message");
     if let Err(e) = run().await {
         eprintln!("Application error: {}", e);
         std::process::exit(1);
     }
+}
+
+fn init_logger() -> Result<(), Box<dyn Error>> {
+    log4rs::init_file("src/config/log4rs.yaml", Default::default())?;
+    Ok(())
 }
 
 async fn run() -> Result<()> {

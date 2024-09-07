@@ -1,7 +1,7 @@
 use crate::models::{DockDoor, DockDoorEvent, TrailerState};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry, AlertType};
 use chrono::{Local};
-use tracing::debug;
+use log::debug;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

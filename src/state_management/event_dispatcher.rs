@@ -1,7 +1,7 @@
 use tokio::sync::mpsc;
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::models::DockDoorEvent;
-use tracing::{info, error};
+use log::{info, error};
 
 /// Dispatches events to the appropriate handlers in the dock monitoring system.
 pub struct EventDispatcher {

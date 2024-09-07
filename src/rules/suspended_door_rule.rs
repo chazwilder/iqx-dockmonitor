@@ -4,7 +4,7 @@ use chrono::{NaiveDateTime, Local, Duration};
 use serde::{Deserialize, Serialize};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType, LogEntry};
 use crate::models::{DockDoor, DockDoorEvent, LoadingStatus};
-use tracing::{debug};
+use log::{debug};
 
 /// Configuration for the SuspendedDoorRule
 #[derive(Debug, Clone, Serialize, Deserialize)]

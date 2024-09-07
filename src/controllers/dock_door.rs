@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::info;
+use log::info;
 
 use crate::config::Settings;
 use crate::services::plc::PlcService;

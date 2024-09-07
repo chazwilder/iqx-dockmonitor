@@ -1,7 +1,7 @@
-use crate::models::{DockDoor, DockDoorEvent, DoorState, TrailerState};
+use crate::models::{DockDoor, DockDoorEvent, TrailerState};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry, AlertType};
 use chrono::Local;
-use tracing::{info, debug};
+use log::{info, debug};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -27,6 +27,7 @@ pub struct SensorConfig {
 
 /// Rule for analyzing trailer docking events
 pub struct TrailerDockingRule {
+    /// The configuration for this rule
     config: TrailerDockingRuleConfig,
 }
 
@@ -147,10 +148,31 @@ impl TrailerDockingRule {
             reasons.join(", ")
         }
     }
+
+    /// Checks if this is the first update for the sensors
+    ///
+    /// # Arguments
+    ///
+    /// * `dock_door` - The DockDoor to check
+    ///
+    /// # Returns
+    ///
+    /// A boolean indicating whether this is the first update (i.e., previous values are None)
+    fn is_first_update(&self, dock_door: &DockDoor) -> bool {
+        self.config.sensors_to_monitor.iter().any(|sensor| {
+            dock_door.sensors.get(&sensor.name)
+                .and_then(|s| s.get_sensor_data().previous_value)
+                .is_none()
+        })
+    }
 }
 
 impl AnalysisRule for TrailerDockingRule {
     /// Applies the rule to a dock door event, generating appropriate analysis results
+    ///
+    /// This method analyzes the given event and generates relevant alerts and log entries
+    /// based on the trailer docking process. It skips alert generation during the initial update
+    /// to prevent false alerts during system initialization.
     ///
     /// # Arguments
     ///
@@ -165,6 +187,12 @@ impl AnalysisRule for TrailerDockingRule {
         match event {
             DockDoorEvent::TrailerStateChanged(e) => {
                 if e.new_state == TrailerState::Docked && e.old_state == TrailerState::Undocked {
+                    // Skip alert generation if this is the first update
+                    if self.is_first_update(dock_door) {
+                        debug!("Skipping alert generation for initial update on door: {}", dock_door.dock_name);
+                        return results;
+                    }
+
                     let is_successful = self.is_docking_successful(dock_door);
                     let failure_reason = if !is_successful {
                         Some(self.get_failure_reason(dock_door))
@@ -199,30 +227,6 @@ impl AnalysisRule for TrailerDockingRule {
 
                     info!("TrailerDockingRule: Generated docking log entry: {:?}", log_entry);
                     results.push(AnalysisResult::Log(log_entry));
-                }
-            },
-            DockDoorEvent::DoorStateChanged(e) => {
-                if e.new_state == DoorState::DoorReady && self.is_docking_successful(dock_door) {
-                    let log_entry = LogEntry::DockingTime {
-                        log_dttm: Local::now().naive_local(),
-                        plant: dock_door.plant_id.clone(),
-                        door_name: dock_door.dock_name.clone(),
-                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                        event_type: "DOCK_READY".to_string(),
-                        success: true,
-                        notes: "Dock ready, docking process completed successfully".to_string(),
-                        severity: 0,
-                        previous_state: Some(format!("{:?}", e.old_state)),
-                        previous_state_dttm: Some(e.timestamp),
-                    };
-                    info!("TrailerDockingRule: Generated successful docking log entry: {:?}", log_entry);
-                    results.push(AnalysisResult::Log(log_entry));
-
-                    results.push(AnalysisResult::Alert(AlertType::DockReady {
-                        door_name: dock_door.dock_name.clone(),
-                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                        timestamp: e.timestamp,
-                    }));
                 }
             },
             _ => {},

@@ -11,7 +11,6 @@ use crate::rules::{DynamicRuleManager, WmsShipmentStatus};
 use crate::services::db::DatabaseService;
 use crate::services::PlcService;
 use crate::state_management::DockDoorStateManager;
-use crate::utils::logging;
 
 
 pub struct AppContext {
@@ -27,8 +26,6 @@ pub struct AppContext {
 
 pub async fn initialize() -> Result<AppContext> {
     let settings = Arc::new(Settings::new()?);
-    let log_file_path = settings.logging.path.clone();
-    let _guard = logging::init_logger(log_file_path)?;
 
     let plc_service = PlcService::new();
     let alert_config = AlertConfig {

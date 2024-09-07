@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use chrono::Local;
-use tracing::{info, error, debug};
+use log::{info, error, debug};
 use crate::models::{DockDoorEvent, DbInsert, DockDoor};
 use crate::analysis::{AnalysisResult, context_analyzer, ContextAnalyzer};
 use crate::errors::{DockManagerResult, DockManagerError};
@@ -25,8 +25,6 @@ pub struct EventHandler {
     alert_manager: Arc<AlertManager>,
     /// The queue for monitoring items.
     monitoring_queue: Arc<MonitoringQueue>,
-    /// The database service for performing database operations.
-    db_service: Arc<DatabaseService>,
     /// A map to store consolidated events.
     consolidated_events: Arc<DashMap<(String, String, i32), ConsolidatedDockEvent>>,
     /// A channel sender for consolidated events.
@@ -56,7 +54,7 @@ impl EventHandler {
         monitoring_queue: Arc<MonitoringQueue>,
         db_service: Arc<DatabaseService>,
     ) -> Self {
-        let (consolidated_event_sender, consolidated_event_receiver) = mpsc::channel(100);
+        let (consolidated_event_sender, consolidated_event_receiver) = mpsc::channel(1000);
 
         // Spawn a task to handle consolidated events
         tokio::spawn(Self::process_consolidated_events(consolidated_event_receiver, Arc::clone(&db_service)));
@@ -67,7 +65,6 @@ impl EventHandler {
             context_analyzer,
             alert_manager,
             monitoring_queue,
-            db_service: Arc::clone(&db_service),
             consolidated_events: Arc::new(DashMap::new()),
             consolidated_event_sender,
         }

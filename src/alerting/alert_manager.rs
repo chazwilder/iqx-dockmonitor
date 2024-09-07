@@ -5,7 +5,7 @@ use chrono::{Duration, Local, NaiveDateTime};
 use reqwest::Client;
 use serde_json::json;
 use tokio::sync::Mutex;
-use tracing::{info, error};
+use log::{info, error};
 use crate::config::AlertThresholds;
 use crate::utils::format_duration;
 

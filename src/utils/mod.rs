@@ -1,7 +1,5 @@
 use chrono::Duration;
 
-pub mod logging;
-
 
 /// Formats a duration into a human-readable string
 ///

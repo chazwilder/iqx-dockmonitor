@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use tracing::{info, debug};
+use log::{info, debug};
 use crate::errors::DockManagerError;
 use crate::models::{
     DockDoor, DockDoorEvent, DockLockState, DoorPosition, DoorState, DoorStateChangedEvent,
@@ -76,20 +76,22 @@ impl SensorDataProcessor {
         let sensor_evaluation = door.update_sensor(&sensor_value.sensor_name, Some(sensor_value.value))?;
 
         if sensor_evaluation.changed {
-            events.push(DockDoorEvent::SensorStateChanged(SensorStateChangedEvent {
-                plant_id: door.plant_id.clone(),
-                dock_name: door.dock_name.clone(),
-                sensor_name: sensor_value.sensor_name.clone(),
-                old_value: sensor_evaluation.old_value,
-                new_value: sensor_evaluation.new_value,
-                timestamp: chrono::Local::now().naive_local(),
-            }));
-
-            self.update_door_state(door, sensor_value, &mut events)?;
+            if sensor_evaluation.old_value.is_none() {
+                debug!("Skipping initial sensor update for door: {}, sensor: {}", door.dock_name, sensor_value.sensor_name);
+                self.update_door_state(door, sensor_value, &mut Vec::new())?;
+                return Ok(Vec::new())
+            } else {
+                events.push(DockDoorEvent::SensorStateChanged(SensorStateChangedEvent {
+                    plant_id: door.plant_id.clone(),
+                    dock_name: door.dock_name.clone(),
+                    sensor_name: sensor_value.sensor_name.clone(),
+                    old_value: sensor_evaluation.old_value,
+                    new_value: sensor_evaluation.new_value,
+                    timestamp: chrono::Local::now().naive_local(),
+                }));
+                self.update_door_state(door, sensor_value, &mut events)?;
+            }
         }
-
-        self.apply_interlock_logic(door, &mut events)?;
-        self.check_loading_readiness(door, &mut events)?;
 
         Ok(events)
     }
@@ -120,8 +122,13 @@ impl SensorDataProcessor {
                 door.trailer_door_fault = sensor_value.value == 1;
             },
             "RH_DOCK_READY" => {
-                if sensor_value.value == 1 && door.door_state == DoorState::TrailerDocked {
-                    self.change_door_state(door, DoorState::DoorReady, events)?;
+                if sensor_value.value == 1 &&
+                    (door.door_state == DoorState::TrailerDocked || door.door_state == DoorState::Unassigned) {
+                    if let Some(old_value) = door.sensors.get("RH_DOCK_READY").and_then(|s| s.get_sensor_data().current_value) {
+                        if old_value == 0 {
+                            self.change_door_state(door, DoorState::DoorReady, events)?;
+                        }
+                    }
                 }
             },
             "RH_DOKLOCK_FAULT" => {
@@ -147,9 +154,6 @@ impl SensorDataProcessor {
             },
             "RH_MANUAL_MODE" => {
                 door.manual_mode = if sensor_value.value == 1 { ManualMode::Enabled } else { ManualMode::Disabled };
-                if door.manual_mode == ManualMode::Enabled {
-                    door.increment_manual_intervention();
-                }
             },
             "RH_RESTRAINT_ENGAGED" => {
                 door.dock_lock_state = if sensor_value.value == 1 { DockLockState::Engaged } else { DockLockState::Disengaged };
@@ -186,50 +190,6 @@ impl SensorDataProcessor {
         Ok(())
     }
 
-    /// Applies the interlock system logic based on the current door state.
-    ///
-    /// # Arguments
-    ///
-    /// * `door` - A mutable reference to the `DockDoor` being updated.
-    /// * `events` - A mutable reference to the vector of events being generated.
-    ///
-    /// # Returns
-    ///
-    /// A Result indicating success or a `DockManagerError` if processing fails.
-    fn apply_interlock_logic(&self, door: &mut DockDoor, events: &mut Vec<DockDoorEvent>) -> Result<(), DockManagerError> {
-        if door.trailer_state == TrailerState::Docked &&
-            door.manual_mode == ManualMode::Disabled &&
-            door.trailer_position_state == TrailerPositionState::Proper
-        {
-            if door.restraint_state == RestraintState::Unlocked {
-                door.restraint_state = RestraintState::Locking;
-            } else if door.restraint_state == RestraintState::Locked && door.door_position == DoorPosition::Closed {
-                door.door_position = DoorPosition::Open;
-            } else if door.door_position == DoorPosition::Open && door.leveler_position == LevelerPosition::Stored {
-                door.leveler_position = LevelerPosition::Extended;
-            } else if door.leveler_position == LevelerPosition::Extended {
-                self.change_door_state(door, DoorState::DoorReady, events)?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Checks if the door is ready for loading and updates the state if necessary.
-    ///
-    /// # Arguments
-    ///
-    /// * `door` - A mutable reference to the `DockDoor` being checked.
-    /// * `events` - A mutable reference to the vector of events being generated.
-    ///
-    /// # Returns
-    ///
-    /// A Result indicating success or a `DockManagerError` if processing fails.
-    fn check_loading_readiness(&self, door: &mut DockDoor, events: &mut Vec<DockDoorEvent>) -> Result<(), DockManagerError> {
-        if door.check_loading_readiness() && door.door_state != DoorState::DoorReady {
-            self.change_door_state(door, DoorState::DoorReady, events)?;
-        }
-        Ok(())
-    }
 
     /// Changes the door state and generates a DoorStateChanged event.
     ///

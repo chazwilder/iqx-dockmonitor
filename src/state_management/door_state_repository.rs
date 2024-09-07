@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use tracing::info;
+use log::info;
 use crate::config::Settings;
 use crate::models::{DbInsert, DockDoor};
 use crate::errors::DockManagerError;

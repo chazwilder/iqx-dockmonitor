@@ -13,7 +13,7 @@ use config::{Config, Environment, File};
 use std::{env, fmt};
 use std::path::PathBuf;
 use secrecy::{Secret, ExposeSecret};
-use tracing::info;
+use log::info;
 use url::Url;
 use crate::errors::DockManagerError;
 

@@ -1,7 +1,7 @@
 use tokio::sync::Notify;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tracing::{info, error};
+use log::{info, error};
 use crate::errors::DockManagerResult;
 use crate::state_management::database_event_manager::DatabaseEventManager;
 

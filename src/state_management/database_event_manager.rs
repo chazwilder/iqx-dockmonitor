@@ -3,7 +3,7 @@ use crate::models::DbInsert;
 use crate::errors::DockManagerError;
 use crate::services::db::DatabaseService;
 use std::sync::Arc;
-use tracing::{info, error};
+use log::{info, error};
 
 /// Manages the collection and processing of database events for the dock monitoring system.
 pub struct DatabaseEventManager {
