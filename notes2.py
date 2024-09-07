@@ -5,7 +5,7 @@ import fnmatch
 ROOT_DIR = "."  # Current directory
 OUTPUT_DIR = "outputs"  # Directory to store output files
 EXCLUDE_PATTERNS = ["*target", "*git", "*idea", "output"]
-FILE_EXTENSIONS = (".rs", ".toml", ".yaml", ".md")
+FILE_EXTENSIONS = (".rs", ".toml", ".yaml",".json")
 
 
 def should_exclude(path):

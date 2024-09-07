@@ -54,14 +54,14 @@ impl MonitoringWorker {
             interval.tick().await;
             info!("Starting Monitoring Worker Loop...");
 
-            let queue_size = self.queue.len().await;
+            let queue_size = self.queue.len();
             info!("Current Monitoring Queue size: {}", queue_size);
 
-            let items: Vec<MonitoringItem> = self.queue.iter().await.collect();
+            let items: Vec<MonitoringItem> = self.queue.iter().map(|ref_multi| ref_multi.key().clone()).collect();
             for item in items {
                 info!("Processing Monitoring Item: {:#?}", item);
                 if !self.process_item(item.clone()).await {
-                    self.queue.remove(&item).await;
+                    self.queue.remove(&item);
                 }
             }
 

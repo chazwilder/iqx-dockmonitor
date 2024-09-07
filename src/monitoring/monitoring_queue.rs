@@ -1,11 +1,10 @@
-use std::collections::HashSet;
-use std::hash::{Hash, Hasher};
+use dashmap::DashSet;
+use std::sync::Arc;
 use chrono::NaiveDateTime;
 use serde::{Serialize, Deserialize};
-use tokio::sync::Mutex;
 
 /// Represents different types of items that can be monitored in the dock monitoring system.
-#[derive(Debug, Clone, Serialize, Deserialize, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum MonitoringItem {
     /// Represents a suspended shipment.
     SuspendedShipment {
@@ -42,54 +41,10 @@ pub enum MonitoringItem {
     },
 }
 
-impl Hash for MonitoringItem {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            MonitoringItem::SuspendedShipment { plant_id, door_name, shipment_id, .. } => {
-                plant_id.hash(state);
-                door_name.hash(state);
-                shipment_id.hash(state);
-                "SuspendedShipment".hash(state);
-            },
-            MonitoringItem::TrailerDockedNotStarted { plant_id, door_name, .. } => {
-                plant_id.hash(state);
-                door_name.hash(state);
-                "TrailerDockedNotStarted".hash(state);
-            },
-            MonitoringItem::ShipmentStartedLoadNotReady { plant_id, door_name, shipment_id, .. } => {
-                plant_id.hash(state);
-                door_name.hash(state);
-                shipment_id.hash(state);
-                "ShipmentStartedLoadNotReady".hash(state);
-            },
-        }
-    }
-}
-
-impl PartialEq for MonitoringItem {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (MonitoringItem::SuspendedShipment { plant_id: p1, door_name: d1, shipment_id: s1, .. },
-                MonitoringItem::SuspendedShipment { plant_id: p2, door_name: d2, shipment_id: s2, .. }) => {
-                p1 == p2 && d1 == d2 && s1 == s2
-            },
-            (MonitoringItem::TrailerDockedNotStarted { plant_id: p1, door_name: d1, .. },
-                MonitoringItem::TrailerDockedNotStarted { plant_id: p2, door_name: d2, .. }) => {
-                p1 == p2 && d1 == d2
-            },
-            (MonitoringItem::ShipmentStartedLoadNotReady { plant_id: p1, door_name: d1, shipment_id: s1, .. },
-                MonitoringItem::ShipmentStartedLoadNotReady { plant_id: p2, door_name: d2, shipment_id: s2, .. }) => {
-                p1 == p2 && d1 == d2 && s1 == s2
-            },
-            _ => false,
-        }
-    }
-}
-
 /// A thread-safe queue for monitoring items in the dock monitoring system.
 pub struct MonitoringQueue {
-    /// The internal HashSet storing the monitoring items, protected by a Mutex for thread-safety.
-    queue: Mutex<HashSet<MonitoringItem>>,
+    /// The internal DashSet storing the monitoring items.
+    queue: Arc<DashSet<MonitoringItem>>,
 }
 
 impl MonitoringQueue {
@@ -100,7 +55,7 @@ impl MonitoringQueue {
     /// A new `MonitoringQueue` instance.
     pub fn new() -> Self {
         Self {
-            queue: Mutex::new(HashSet::new()),
+            queue: Arc::new(DashSet::new()),
         }
     }
 
@@ -112,9 +67,8 @@ impl MonitoringQueue {
     /// # Arguments
     ///
     /// * `item` - The `MonitoringItem` to be added to the queue.
-    pub async fn add(&self, item: MonitoringItem) {
-        let mut queue = self.queue.lock().await;
-        queue.insert(item);
+    pub fn add(&self, item: MonitoringItem) {
+        self.queue.insert(item);
     }
 
     /// Removes an item from the monitoring queue.
@@ -126,9 +80,8 @@ impl MonitoringQueue {
     /// # Returns
     ///
     /// `true` if the item was present in the queue and removed, `false` otherwise.
-    pub async fn remove(&self, item: &MonitoringItem) -> bool {
-        let mut queue = self.queue.lock().await;
-        queue.remove(item)
+    pub fn remove(&self, item: &MonitoringItem) -> bool {
+        self.queue.remove(item).is_some()
     }
 
     /// Checks if an item is present in the monitoring queue.
@@ -140,9 +93,8 @@ impl MonitoringQueue {
     /// # Returns
     ///
     /// `true` if the item is present in the queue, `false` otherwise.
-    pub async fn contains(&self, item: &MonitoringItem) -> bool {
-        let queue = self.queue.lock().await;
-        queue.contains(item)
+    pub fn contains(&self, item: &MonitoringItem) -> bool {
+        self.queue.contains(item)
     }
 
     /// Returns the number of items in the monitoring queue.
@@ -150,9 +102,8 @@ impl MonitoringQueue {
     /// # Returns
     ///
     /// The number of items currently in the queue.
-    pub async fn len(&self) -> usize {
-        let queue = self.queue.lock().await;
-        queue.len()
+    pub fn len(&self) -> usize {
+        self.queue.len()
     }
 
     /// Checks if the monitoring queue is empty.
@@ -160,24 +111,27 @@ impl MonitoringQueue {
     /// # Returns
     ///
     /// `true` if the queue is empty, `false` otherwise.
-    pub async fn is_empty(&self) -> bool {
-        let queue = self.queue.lock().await;
-        queue.is_empty()
+    pub fn is_empty(&self) -> bool {
+        self.queue.is_empty()
     }
 
     /// Removes all items from the monitoring queue.
-    pub async fn clear(&self) {
-        let mut queue = self.queue.lock().await;
-        queue.clear();
+    pub fn clear(&self) {
+        self.queue.clear();
     }
 
     /// Returns an iterator over the items in the monitoring queue.
     ///
     /// # Returns
     ///
-    /// An iterator that yields cloned `MonitoringItem`s.
-    pub async fn iter(&self) -> impl Iterator<Item = MonitoringItem> + '_ {
-        let queue = self.queue.lock().await;
-        queue.iter().cloned().collect::<Vec<_>>().into_iter()
+    /// An iterator that yields references to `MonitoringItem`s.
+    pub fn iter(&self) -> impl Iterator<Item = dashmap::setref::multiple::RefMulti<'_, MonitoringItem>> {
+        self.queue.iter()
+    }
+}
+
+impl Default for MonitoringQueue {
+    fn default() -> Self {
+        Self::new()
     }
 }

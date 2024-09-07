@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc};
 use chrono::{NaiveDateTime, Local, Duration};
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType, LogEntry};
 use crate::models::{DockDoor, DockDoorEvent, LoadingStatus, TrailerState, ManualMode};
@@ -20,7 +20,7 @@ pub struct TrailerHostageRule {
     /// The parsed configuration for this rule
     config: TrailerHostageRuleConfig,
     /// A map to track the last alert time for each door
-    last_alert_time: Mutex<HashMap<String, NaiveDateTime>>,
+    last_alert_time: Arc<DashMap<String, NaiveDateTime>>,
 }
 
 impl TrailerHostageRule {
@@ -30,20 +30,17 @@ impl TrailerHostageRule {
             .expect("Failed to parse TrailerHostageRule configuration");
         Self {
             config: parsed_config,
-            last_alert_time: Mutex::new(HashMap::new()),
+            last_alert_time: Arc::new(DashMap::new()),
         }
     }
 
     /// Checks if an alert should be sent based on the last alert time and repeat interval
     fn should_send_alert(&self, door_name: &str) -> bool {
         let now = Local::now().naive_local();
-        let mut last_alert_time = self.last_alert_time.lock().unwrap();
-        let last_alert = last_alert_time.get(door_name);
-
-        match last_alert {
+        match self.last_alert_time.get(door_name) {
             Some(time) if now.signed_duration_since(*time) < Duration::seconds(self.config.repeat_interval as i64) => false,
             _ => {
-                last_alert_time.insert(door_name.to_string(), now);
+                self.last_alert_time.insert(door_name.to_string(), now);
                 true
             }
         }
