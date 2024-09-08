@@ -127,6 +127,7 @@ impl EventHandler {
             .ok_or_else(|| DockManagerError::DoorNotFound(door_name.to_string()))?;
 
         let analysis_results = self.context_analyzer.analyze(&door, &event).await;
+        info!("Analysis results: {:?}", analysis_results);
 
         let mut db_events = Vec::new();
         for result in analysis_results {

@@ -1,16 +1,21 @@
 use crate::models::{DockDoor, DockDoorEvent, DoorState};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, AlertType, LogEntry};
 use chrono::Local;
+use log::info;
 
 pub struct DockReadyRule;
 
 impl AnalysisRule for DockReadyRule {
     fn apply(&self, dock_door: &DockDoor, event: &DockDoorEvent) -> Vec<AnalysisResult> {
+        info!("DockReadyRule applying to event: {:?}", event);
+
         let mut results = Vec::new();
 
         match event {
             DockDoorEvent::SensorStateChanged(e) if e.sensor_name == "RH_DOCK_READY" => {
                 if e.new_value == Some(1) && e.old_value == Some(0) && dock_door.door_state == DoorState::TrailerDocked {
+                    info!("Door ready detected, checking conditions...");
+
                     results.push(AnalysisResult::Alert(AlertType::DockReady {
                         door_name: dock_door.dock_name.clone(),
                         shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
@@ -36,7 +41,7 @@ impl AnalysisRule for DockReadyRule {
             },
             _ => {}
         }
-
+        info!("DockReadyRule results: {:?}", results);
         results
     }
 }

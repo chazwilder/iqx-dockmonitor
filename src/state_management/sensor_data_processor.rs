@@ -169,6 +169,7 @@ impl SensorDataProcessor {
                     TrailerState::Undocked
                 };
                 if door.trailer_state != new_trailer_state {
+                    info!("Trailer state change detected: {:?} -> {:?}", door.trailer_state, new_trailer_state);
                     events.push(DockDoorEvent::TrailerStateChanged(TrailerStateChangedEvent {
                         plant_id: door.plant_id.clone(),
                         dock_name: door.dock_name.clone(),
@@ -178,6 +179,7 @@ impl SensorDataProcessor {
                     }));
                     door.trailer_state = new_trailer_state;
                     if new_trailer_state == TrailerState::Docked {
+                        info!("Changing door state to TrailerDocked");
                         self.change_door_state(door, DoorState::TrailerDocked, events)?;
                     }
                 }
