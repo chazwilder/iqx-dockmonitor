@@ -123,7 +123,7 @@ impl EventHandler {
         let door_name = event.get_dock_name();
         let plant_id = event.get_plant_id();
 
-        let mut door = self.door_repository.get_door_state(plant_id, door_name)
+        let mut door = self.door_repository.get_door_state(plant_id, door_name).await
             .ok_or_else(|| DockManagerError::DoorNotFound(door_name.to_string()))?;
 
         let analysis_results = self.context_analyzer.analyze(&door, &event).await;

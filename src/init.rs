@@ -63,7 +63,7 @@ pub async fn initialize() -> Result<AppContext> {
 
     let monitoring_queue = Arc::new(MonitoringQueue::new());
 
-    let (state_manager, event_receiver) = DockDoorStateManager::new(&settings, Arc::new(db_service.clone()));
+    let (state_manager, event_receiver) = DockDoorStateManager::new(&settings, Arc::new(db_service.clone())).await;
     let event_handler = EventHandler::new(
         event_receiver,
         state_manager.get_door_repository(),

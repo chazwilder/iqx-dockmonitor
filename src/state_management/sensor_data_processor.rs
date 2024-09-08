@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use log::{info, debug};
-use crate::errors::DockManagerError;
+use crate::errors::{DockManagerError, DockManagerResult};
 use crate::models::{
     DockDoor, DockDoorEvent, DockLockState, DoorPosition, DoorState, DoorStateChangedEvent,
     FaultState, LevelerPosition, ManualMode, PlcVal, RestraintState, SensorStateChangedEvent,
@@ -40,20 +40,19 @@ impl SensorDataProcessor {
     ///
     /// A Result containing a vector of `DockDoorEvent`s generated from the sensor updates,
     /// or a `DockManagerError` if processing fails.
-    pub async fn process_sensor_updates(&self, sensor_values: Vec<PlcVal>) -> Result<Vec<DockDoorEvent>, DockManagerError> {
+    pub async fn process_sensor_updates(&self, sensor_values: Vec<PlcVal>) -> DockManagerResult<Vec<DockDoorEvent>> {
         let mut events = Vec::new();
-
         for sensor_value in sensor_values {
             let plant_id = &sensor_value.plant_id;
             let door_name = &sensor_value.door_name;
 
-            let mut door = self.door_repository.get_door_state(plant_id, door_name)
+            let mut door = self.door_repository.get_door_state(plant_id, door_name).await
                 .ok_or_else(|| DockManagerError::DoorNotFound(format!("Plant: {}, Door: {}", plant_id, door_name)))?;
 
             let new_events = self.process_single_sensor_update(&mut door, &sensor_value).await?;
             events.extend(new_events);
 
-            self.door_repository.update_door(plant_id, door)?;
+            self.door_repository.update_door(plant_id, door).await?;
         }
 
         Ok(events)

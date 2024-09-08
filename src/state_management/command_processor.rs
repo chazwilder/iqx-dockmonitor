@@ -164,7 +164,7 @@ impl CommandProcessor {
     ///
     /// A Result containing the DoorState or a DockManagerError
     async fn handle_get_door_state(&self, plant_id: &str, door_name: &str) -> Result<DoorState, DockManagerError> {
-        self.door_repository.get_door_state(plant_id, door_name)
+        self.door_repository.get_door_state(plant_id, door_name).await
             .ok_or_else(|| DockManagerError::DoorNotFound(format!("Plant: {}, Door: {}", plant_id, door_name)))
             .map(|door| door.door_state)
     }

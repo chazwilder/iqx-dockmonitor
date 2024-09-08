@@ -60,7 +60,7 @@ impl WmsDataProcessor {
     async fn process_single_wms_update(&self, wms_status: &WmsDoorStatus) -> Result<Vec<DockDoorEvent>, DockManagerError> {
         let mut events = Vec::new();
 
-        let mut door = self.door_repository.get_door_state(wms_status.plant.as_str(),&wms_status.dock_name)
+        let mut door = self.door_repository.get_door_state(wms_status.plant.as_str(),&wms_status.dock_name).await
             .ok_or_else(|| DockManagerError::DoorNotFound(wms_status.dock_name.clone()))?;
 
         // Update shipment assignment
@@ -118,7 +118,7 @@ impl WmsDataProcessor {
         }
 
         // Update the door in the repository
-        self.door_repository.update_door(door.plant_id.clone().as_str(), door)?;
+        self.door_repository.update_door(door.plant_id.clone().as_str(), door).await?;
 
         Ok(events)
     }
