@@ -159,7 +159,6 @@ impl EventHandler {
         }
 
         door.handle_event(&event)?;
-        self.door_repository.update_door(plant_id, door)?;
 
         if !db_events.is_empty() {
             self.insert_db_events(&db_events).await?;

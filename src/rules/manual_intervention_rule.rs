@@ -87,43 +87,47 @@ impl ManualInterventionRule {
         let mut monitoring = self.monitoring.lock().unwrap();
         monitoring.retain(|dock_name, (start_time, shipment_id)| {
             if let Some(door) = dock_doors.get(dock_name) {
-                let duration = now.signed_duration_since(*start_time);
-                if door.manual_mode == ManualMode::Disabled {
-                    results.push(AnalysisResult::Log(LogEntry::ManualInterventionSuccess {
-                        log_dttm: now,
-                        plant: door.plant_id.clone(),
-                        door_name: dock_name.clone(),
-                        shipment_id: Some(shipment_id.clone()),
-                        event_type: "MANUAL_INTERVENTION_SUCCESS".to_string(),
-                        success: true,
-                        notes: format!("Manual intervention completed, duration: {:?}", duration),
-                        severity: 0,
-                        previous_state: None,
-                        previous_state_dttm: None,
-                    }));
-                    false
-                } else if duration > Duration::seconds(self.config.max_duration as i64) {
-                    results.push(AnalysisResult::Alert(AlertType::ManualInterventionTimeout {
-                        dock_name: dock_name.clone(),
-                        shipment_id: shipment_id.clone(),
-                        start_time: *start_time,
-                        end_time: now,
-                    }));
-                    results.push(AnalysisResult::Log(LogEntry::ManualInterventionFailure {
-                        log_dttm: now,
-                        plant: door.plant_id.clone(),
-                        door_name: dock_name.clone(),
-                        shipment_id: Some(shipment_id.clone()),
-                        event_type: "MANUAL_INTERVENTION_FAILURE".to_string(),
-                        success: false,
-                        notes: format!("Manual intervention timeout after {:?}", duration),
-                        severity: 2,
-                        previous_state: None,
-                        previous_state_dttm: None,
-                    }));
-                    false
+                if door.assigned_shipment.current_shipment.is_some() {
+                    let duration = now.signed_duration_since(*start_time);
+                    if door.manual_mode == ManualMode::Disabled {
+                        results.push(AnalysisResult::Log(LogEntry::ManualInterventionSuccess {
+                            log_dttm: now,
+                            plant: door.plant_id.clone(),
+                            door_name: dock_name.clone(),
+                            shipment_id: Some(shipment_id.clone()),
+                            event_type: "MANUAL_INTERVENTION_SUCCESS".to_string(),
+                            success: true,
+                            notes: format!("Manual intervention completed, duration: {:?}", duration),
+                            severity: 0,
+                            previous_state: None,
+                            previous_state_dttm: None,
+                        }));
+                        false
+                    } else if duration > Duration::seconds(self.config.max_duration as i64) {
+                        results.push(AnalysisResult::Alert(AlertType::ManualInterventionTimeout {
+                            dock_name: dock_name.clone(),
+                            shipment_id: shipment_id.clone(),
+                            start_time: *start_time,
+                            end_time: now,
+                        }));
+                        results.push(AnalysisResult::Log(LogEntry::ManualInterventionFailure {
+                            log_dttm: now,
+                            plant: door.plant_id.clone(),
+                            door_name: dock_name.clone(),
+                            shipment_id: Some(shipment_id.clone()),
+                            event_type: "MANUAL_INTERVENTION_FAILURE".to_string(),
+                            success: false,
+                            notes: format!("Manual intervention timeout after {:?}", duration),
+                            severity: 2,
+                            previous_state: None,
+                            previous_state_dttm: None,
+                        }));
+                        false
+                    } else {
+                        true
+                    }
                 } else {
-                    true
+                    false // Remove from monitoring if there's no assigned shipment
                 }
             } else {
                 false
@@ -137,6 +141,9 @@ impl ManualInterventionRule {
 impl AnalysisRule for ManualInterventionRule {
     /// Applies the rule to a dock door event, generating appropriate analysis results
     ///
+    /// This method analyzes the given event and generates relevant logs and alerts
+    /// based on manual intervention events.
+    ///
     /// # Arguments
     ///
     /// * `dock_door` - A reference to the `DockDoor` associated with the event
@@ -144,11 +151,11 @@ impl AnalysisRule for ManualInterventionRule {
     ///
     /// # Returns
     ///
-    /// A vector of `AnalysisResult` containing logs generated based on the event
+    /// A vector of `AnalysisResult` containing logs and alerts generated based on the event
     fn apply(&self, dock_door: &DockDoor, event: &DockDoorEvent) -> Vec<AnalysisResult> {
         match event {
             DockDoorEvent::SensorStateChanged(e) if e.sensor_name == "RH_MANUAL_MODE" => {
-                if e.new_value == Some(1) {
+                if e.new_value == Some(1) && e.old_value == Some(0) && dock_door.assigned_shipment.current_shipment.is_some() {
                     self.start_monitoring(e.dock_name.clone(), dock_door.assigned_shipment.current_shipment.clone().unwrap_or_default());
                     vec![AnalysisResult::Log(LogEntry::ManualInterventionStarted {
                         log_dttm: e.timestamp,
@@ -162,7 +169,7 @@ impl AnalysisRule for ManualInterventionRule {
                         previous_state: None,
                         previous_state_dttm: None,
                     })]
-                } else if e.new_value == Some(0) {
+                } else if e.new_value == Some(0) && e.old_value == Some(1) {
                     if let Some((start_time, _shipment_id)) = self.stop_monitoring(&e.dock_name) {
                         vec![AnalysisResult::Log(LogEntry::ManualInterventionSuccess {
                             log_dttm: e.timestamp,
