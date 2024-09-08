@@ -155,11 +155,8 @@ impl DockDoorStateManager {
     /// # Returns
     ///
     /// A `DockManagerResult` containing a vector of generated `DbInsert` events.
-    pub async fn process_wms_events(&self, wms_events: Vec<WmsEvent>) -> DockManagerResult<Vec<DbInsert>> {
-        Ok(wms_events
-            .into_iter()
-            .filter_map(|event| DbInsert::try_from(event).ok())
-            .collect())
+    pub async fn process_wms_events(&self, wms_events: Vec<WmsEvent>) -> DockManagerResult<Vec<DockDoorEvent>> {
+        self.wms_processor.process_wms_events(wms_events).await
     }
 
     /// Dispatches a single event.

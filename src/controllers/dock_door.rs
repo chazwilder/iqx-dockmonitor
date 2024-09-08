@@ -142,8 +142,21 @@ impl DockDoorController {
             }
         }
 
-        let new_db_events = self.state_manager.process_wms_events(all_wms_events).await?;
-        self.db_service.lock().await.insert_dock_door_events(new_db_events).await?;
+        // Process WMS events and get DockDoorEvents
+        let dock_door_events = self.state_manager.process_wms_events(all_wms_events).await?;
+
+        // Process the resulting DockDoorEvents through the event handler
+        let mut db_events = Vec::new();
+        for event in dock_door_events {
+            let new_db_events = self.event_handler.process_event(event).await?;
+            db_events.extend(new_db_events);
+        }
+
+        // Insert the resulting database events
+        if !db_events.is_empty() {
+            info!("Inserting {} WMS event DB events", db_events.len());
+            self.db_service.lock().await.insert_dock_door_events(db_events).await?;
+        }
 
         Ok(())
     }

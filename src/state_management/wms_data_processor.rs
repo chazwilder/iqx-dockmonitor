@@ -1,6 +1,6 @@
 use std::str::FromStr;
-use crate::models::{WmsDoorStatus, DockDoorEvent, DoorState, DockDoor, ShipmentAssignedEvent, ShipmentUnassignedEvent, LoadingStatus, LoadingStatusChangedEvent, DoorStateChangedEvent};
-use crate::errors::DockManagerError;
+use crate::models::{WmsDoorStatus, DockDoorEvent, DoorState, DockDoor, ShipmentAssignedEvent, ShipmentUnassignedEvent, LoadingStatus, LoadingStatusChangedEvent, DoorStateChangedEvent, WmsEvent};
+use crate::errors::{DockManagerError, DockManagerResult};
 use crate::state_management::door_state_repository::DoorStateRepository;
 use std::sync::Arc;
 
@@ -152,5 +152,29 @@ impl WmsDataProcessor {
             "WaitingForExit" => DoorState::WaitingForExit,
             _ => door.door_state, // Maintain current state if unknown WMS status
         }
+    }
+
+    pub async fn process_wms_events(&self, wms_events: Vec<WmsEvent>) -> DockManagerResult<Vec<DockDoorEvent>> {
+        let mut events = Vec::new();
+
+        for wms_event in wms_events {
+            let mut door = self.door_repository.get_door_state(&wms_event.plant, &wms_event.dock_name).await
+                .ok_or_else(|| DockManagerError::DoorNotFound(wms_event.dock_name.clone()))?;
+
+            // Convert WmsEvent to DockDoorEvent
+            let dock_door_event = DockDoorEvent::from_wms_event(wms_event.clone());
+
+            // Update door state based on WMS event
+            if wms_event.message_type == "DOCK_ASSIGNMENT" {
+                door.dock_assignment = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
+            }
+
+            // Update the door in the repository
+            self.door_repository.update_door(&wms_event.plant, door).await?;
+
+            events.push(dock_door_event);
+        }
+
+        Ok(events)
     }
 }
