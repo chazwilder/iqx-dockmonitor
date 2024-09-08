@@ -285,6 +285,7 @@ pub struct MonitoringSettings {
     pub suspended_shipment: MonitoringThresholds,
     pub trailer_docked_not_started: MonitoringThresholds,
     pub shipment_started_load_not_ready: MonitoringThresholds,
+    pub trailer_hostage: MonitoringThresholds,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

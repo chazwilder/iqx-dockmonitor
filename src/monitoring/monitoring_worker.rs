@@ -4,7 +4,7 @@ use tokio::time::interval;
 use log::{info, warn, error};
 use crate::alerting::alert_manager::{AlertManager, Alert, AlertType};
 use crate::config::Settings;
-use crate::models::LoadingStatus;
+use crate::models::{LoadingStatus, TrailerState, ManualMode};
 use crate::state_management::door_state_repository::DoorStateRepository;
 use crate::utils::format_duration;
 use super::monitoring_queue::{MonitoringQueue, MonitoringItem};
@@ -89,18 +89,22 @@ impl MonitoringWorker {
             MonitoringItem::ShipmentStartedLoadNotReady { plant_id, door_name, shipment_id, started_at } => {
                 self.process_shipment_started_load_not_ready(plant_id, door_name, shipment_id, started_at).await
             },
+            MonitoringItem::TrailerHostage { plant_id, door_name, shipment_id, detected_at } => {
+                self.process_trailer_hostage(plant_id, door_name, shipment_id, detected_at).await
+            },
         }
     }
 
-    /// Processes a suspended shipment monitoring item
+    // ... [Other existing methods remain unchanged] ...
+
+    /// Processes a trailer hostage monitoring item
     ///
     /// # Arguments
     ///
     /// * `plant_id` - The ID of the plant
     /// * `door_name` - The name of the door
-    /// * `shipment_id` - The ID of the shipment
-    /// * `suspended_at` - The timestamp when the shipment was suspended
-    /// * `user` - The user who suspended the shipment
+    /// * `shipment_id` - The ID of the shipment (if available)
+    /// * `detected_at` - The timestamp when the hostage situation was first detected
     ///
     /// # Returns
     ///
@@ -233,6 +237,56 @@ impl MonitoringWorker {
                 true // Keep in queue for future checks
             } else {
                 info!("Door {} is now ready for loading", door_name);
+                false // Remove from queue
+            }
+        } else {
+            warn!("Door {} not found in state manager", door_name);
+            false // Remove from queue
+        }
+    }
+
+    /// Processes a trailer hostage monitoring item
+    ///
+    /// # Arguments
+    ///
+    /// * `plant_id` - The ID of the plant
+    /// * `door_name` - The name of the door
+    /// * `shipment_id` - The ID of the shipment (if available)
+    /// * `detected_at` - The timestamp when the hostage situation was first detected
+    ///
+    /// # Returns
+    ///
+    /// A boolean indicating whether the item should be kept in the queue
+    async fn process_trailer_hostage(&self, plant_id: String, door_name: String, shipment_id: Option<String>, detected_at: NaiveDateTime) -> bool {
+        info!("Processing TrailerHostage for door: {}, shipment: {:?}", door_name, shipment_id);
+        if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name).await {
+            let is_hostage_situation = (door_state.loading_status == LoadingStatus::Completed ||
+                door_state.loading_status == LoadingStatus::WaitingForExit) &&
+                door_state.trailer_state == TrailerState::Docked &&
+                door_state.manual_mode == ManualMode::Enabled;
+
+            if is_hostage_situation {
+                let duration = Local::now().naive_local().signed_duration_since(detected_at);
+                let alert_threshold = Duration::seconds(self.settings.monitoring.trailer_hostage.alert_threshold as i64);
+                let repeat_interval = Duration::seconds(self.settings.monitoring.trailer_hostage.repeat_interval as i64);
+
+                info!("Door {} is in a hostage situation for {:?}. Alert threshold: {:?}, Repeat interval: {:?}",
+                    door_name, duration, alert_threshold, repeat_interval);
+
+                if duration >= alert_threshold && self.should_alert(duration, repeat_interval) {
+                    info!("Sending alert for trailer hostage situation at door {}", door_name);
+                    let alert = Alert::new(AlertType::TrailerHostage, door_name.clone())
+                        .shipment_id(shipment_id.clone().unwrap_or_default())
+                        .duration(duration)
+                        .add_info("detected_at".to_string(), detected_at.to_string())
+                        .build();
+                    if let Err(e) = self.alert_manager.handle_alert(alert).await {
+                        error!("Failed to handle TrailerHostage alert: {:?}", e);
+                    }
+                }
+                true // Keep in queue for future checks
+            } else {
+                info!("Door {} is no longer in a hostage situation", door_name);
                 false // Remove from queue
             }
         } else {

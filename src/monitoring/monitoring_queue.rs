@@ -39,6 +39,17 @@ pub enum MonitoringItem {
         /// The timestamp when the shipment started loading.
         started_at: NaiveDateTime,
     },
+    /// Represents a potential trailer hostage situation.
+    TrailerHostage {
+        /// The ID of the plant where the potential hostage situation is occurring.
+        plant_id: String,
+        /// The name of the dock door involved in the potential hostage situation.
+        door_name: String,
+        /// The ID of the shipment associated with the potential hostage situation.
+        shipment_id: Option<String>,
+        /// The timestamp when the potential hostage situation was first detected.
+        detected_at: NaiveDateTime,
+    },
 }
 
 /// A thread-safe queue for monitoring items in the dock monitoring system.

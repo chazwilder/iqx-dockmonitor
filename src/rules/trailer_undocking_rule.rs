@@ -1,5 +1,5 @@
-use crate::models::{DockDoor, DockDoorEvent, TrailerState};
-use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry, AlertType};
+use crate::models::{DockDoor, DockDoorEvent};
+use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry};
 use chrono::{Local};
 use log::debug;
 use serde::{Deserialize, Serialize};

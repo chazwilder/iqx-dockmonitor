@@ -13,7 +13,7 @@ impl AnalysisRule for DockReadyRule {
 
         match event {
             DockDoorEvent::SensorStateChanged(e) if e.sensor_name == "RH_DOCK_READY" => {
-                if e.new_value == Some(1) && e.old_value == Some(0) && dock_door.door_state == DoorState::TrailerDocked {
+                if e.new_value == Some(1) && e.old_value == Some(0)  {
                     info!("Door ready detected, checking conditions...");
 
                     results.push(AnalysisResult::Alert(AlertType::DockReady {
@@ -36,7 +36,6 @@ impl AnalysisRule for DockReadyRule {
                     };
 
                     results.push(AnalysisResult::Log(log_entry));
-                    results.push(AnalysisResult::StateTransition(DoorState::DoorReady));
                 }
             },
             _ => {}

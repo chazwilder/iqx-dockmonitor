@@ -295,6 +295,14 @@ impl EventHandler {
                     docked_at: timestamp,
                 });
             },
+            context_analyzer::AlertType::TrailerHostage { door_name, shipment_id, .. } => {
+                self.monitoring_queue.add(MonitoringItem::TrailerHostage {
+                    plant_id: door.plant_id.clone(),
+                    door_name,
+                    shipment_id,
+                    detected_at: Local::now().naive_local(),
+                });
+            },
             _ => {}
         }
     }
