@@ -13,7 +13,7 @@ use config::{Config, Environment, File};
 use std::{env, fmt};
 use std::path::PathBuf;
 use secrecy::{Secret, ExposeSecret};
-use log::{debug, info};
+use log::{debug};
 use url::Url;
 use crate::errors::DockManagerError;
 
@@ -325,7 +325,7 @@ impl Settings {
             .add_source(Environment::with_prefix("APP").separator("__"))
             .build()?;
 
-        info!("{:#?}", s);
+        debug!("{:#?}", s);
         let mut s: Self = s.try_deserialize::<Settings>()
             .map_err(DockManagerError::from)?;
 

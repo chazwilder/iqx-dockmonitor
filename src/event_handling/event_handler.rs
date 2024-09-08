@@ -9,7 +9,6 @@ use crate::alerting::alert_manager::{AlertManager, Alert, AlertType};
 use crate::monitoring::{MonitoringItem, MonitoringQueue};
 use crate::state_management::door_state_repository::DoorStateRepository;
 use crate::services::db::DatabaseService;
-use dashmap::DashMap;
 use crate::models::consolidated_dock_event::ConsolidatedDockEvent;
 
 /// The EventHandler is responsible for processing events in the dock door management system.
@@ -25,8 +24,6 @@ pub struct EventHandler {
     alert_manager: Arc<AlertManager>,
     /// The queue for monitoring items.
     monitoring_queue: Arc<MonitoringQueue>,
-    /// A map to store consolidated events.
-    consolidated_events: Arc<DashMap<(String, String, i32), ConsolidatedDockEvent>>,
     /// A channel sender for consolidated events.
     consolidated_event_sender: mpsc::Sender<ConsolidatedDockEvent>,
 }
@@ -65,7 +62,6 @@ impl EventHandler {
             context_analyzer,
             alert_manager,
             monitoring_queue,
-            consolidated_events: Arc::new(DashMap::new()),
             consolidated_event_sender,
         }
     }
@@ -154,6 +150,11 @@ impl EventHandler {
                 },
                 AnalysisResult::DbInsert(db_insert) => {
                     db_events.push(db_insert);
+                },
+                AnalysisResult::ConsolidatedEvent(consolidated_event) => {
+                    if let Err(e) = self.consolidated_event_sender.send(consolidated_event).await {
+                        error!("Failed to send consolidated event: {:?}", e);
+                    }
                 }
             }
         }
@@ -164,176 +165,7 @@ impl EventHandler {
             self.insert_db_events(&db_events).await?;
         }
 
-        self.update_consolidated_event(&event).await?;
-
         Ok(db_events)
-    }
-
-    /// Updates the consolidated event based on the incoming event.
-    ///
-    /// This method updates or creates a new consolidated event and sends it
-    /// through a channel for asynchronous processing if necessary.
-    ///
-    /// # Arguments
-    ///
-    /// * `event` - The `DockDoorEvent` to process for consolidation.
-    ///
-    /// # Returns
-    ///
-    /// A `DockManagerResult` indicating success or failure of the operation.
-    async fn update_consolidated_event(&self, event: &DockDoorEvent) -> DockManagerResult<()> {
-        let key = (
-            event.get_plant_id().to_string(),
-            event.get_dock_name().to_string(),
-            event.get_shipment_id().unwrap_or_default().parse::<i32>().unwrap_or(0)
-        );
-
-        let mut should_remove = false;
-        let mut should_insert = false;
-
-        if let Some(mut entry) = self.consolidated_events.get_mut(&key) {
-            // Update existing consolidated event
-            self.update_existing_consolidated_event(&mut entry, event, &mut should_insert, &mut should_remove);
-        } else {
-            // Create new consolidated event
-            let mut new_event = self.create_new_consolidated_event(&key, event);
-            self.calculate_durations(&mut new_event);
-            self.consolidated_events.insert(key.clone(), new_event);
-            should_insert = true;
-        }
-
-        if should_insert {
-            if let Some(event_to_insert) = self.consolidated_events.get(&key) {
-                if let Err(e) = self.consolidated_event_sender.send(event_to_insert.clone()).await {
-                    error!("Failed to send consolidated event: {:?}", e);
-                }
-            }
-        }
-
-        if should_remove {
-            self.consolidated_events.remove(&key);
-        }
-
-        Ok(())
-    }
-
-    /// Updates an existing consolidated event based on the incoming event.
-    ///
-    /// # Arguments
-    ///
-    /// * `consolidated_event` - The existing consolidated event to update.
-    /// * `event` - The new event being processed.
-    /// * `should_insert` - A mutable reference to the flag indicating if the event should be inserted.
-    /// * `should_remove` - A mutable reference to the flag indicating if the event should be removed.
-    fn update_existing_consolidated_event(
-        &self,
-        consolidated_event: &mut ConsolidatedDockEvent,
-        event: &DockDoorEvent,
-        should_insert: &mut bool,
-        should_remove: &mut bool,
-    ) {
-        match event {
-            DockDoorEvent::ShipmentAssigned(e) => {
-                consolidated_event.shipment_assigned = Some(e.timestamp);
-            },
-            DockDoorEvent::DockAssigned(e) => {
-                consolidated_event.dock_assignment = Some(e.timestamp);
-            },
-            DockDoorEvent::TrailerDocked(e) => {
-                consolidated_event.trailer_docking = Some(e.timestamp);
-            },
-            DockDoorEvent::LoadingStarted(e) => {
-                consolidated_event.started_shipment = Some(e.timestamp);
-            },
-            DockDoorEvent::WmsEvent(e) if e.event_type == "STARTED_SHIPMENT" => {
-                consolidated_event.started_shipment = Some(e.timestamp);
-            },
-            DockDoorEvent::WmsEvent(e) if e.event_type == "LGV_START_LOADING" => {
-                consolidated_event.lgv_start_loading = Some(e.timestamp);
-                *should_insert = true;
-                *should_remove = true;
-            },
-            DockDoorEvent::DoorStateChanged(e) if e.new_state == crate::models::DoorState::DoorReady => {
-                consolidated_event.dock_ready = Some(e.timestamp);
-            },
-            _ => {}
-        }
-
-        self.calculate_durations(consolidated_event);
-    }
-
-    /// Creates a new consolidated event based on the incoming event.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - The key for the consolidated event.
-    /// * `event` - The new event being processed.
-    ///
-    /// # Returns
-    ///
-    /// A new `ConsolidatedDockEvent`.
-    fn create_new_consolidated_event(&self, key: &(String, String, i32), event: &DockDoorEvent) -> ConsolidatedDockEvent {
-        let mut new_event = ConsolidatedDockEvent {
-            plant: key.0.clone(),
-            door_name: key.1.clone(),
-            shipment_id: key.2,
-            docking_time_minutes: None,
-            inspection_time_minutes: None,
-            enqueued_time_minutes: None,
-            shipment_assigned: None,
-            dock_assignment: None,
-            trailer_docking: None,
-            started_shipment: None,
-            lgv_start_loading: None,
-            dock_ready: None,
-            is_preload: false,
-        };
-
-        match event {
-            DockDoorEvent::ShipmentAssigned(e) => {
-                new_event.shipment_assigned = Some(e.timestamp);
-            },
-            DockDoorEvent::DockAssigned(e) => {
-                new_event.dock_assignment = Some(e.timestamp);
-            },
-            DockDoorEvent::TrailerDocked(e) => {
-                new_event.trailer_docking = Some(e.timestamp);
-            },
-            DockDoorEvent::LoadingStarted(e) => {
-                new_event.started_shipment = Some(e.timestamp);
-            },
-            DockDoorEvent::WmsEvent(e) if e.event_type == "STARTED_SHIPMENT" => {
-                new_event.started_shipment = Some(e.timestamp);
-            },
-            DockDoorEvent::WmsEvent(e) if e.event_type == "LGV_START_LOADING" => {
-                new_event.lgv_start_loading = Some(e.timestamp);
-            },
-            DockDoorEvent::DoorStateChanged(e) if e.new_state == crate::models::DoorState::DoorReady => {
-                new_event.dock_ready = Some(e.timestamp);
-            },
-            _ => {}
-        }
-
-        new_event
-    }
-
-    /// Calculates the durations for a consolidated event.
-    ///
-    /// # Arguments
-    ///
-    /// * `event` - A mutable reference to the `ConsolidatedDockEvent` to update.
-    fn calculate_durations(&self, event: &mut ConsolidatedDockEvent) {
-        if let (Some(dock_assignment), Some(trailer_docking)) = (event.dock_assignment, event.trailer_docking) {
-            event.docking_time_minutes = Some((trailer_docking - dock_assignment).num_minutes() as i32);
-        }
-
-        if let (Some(trailer_docking), Some(started_shipment)) = (event.trailer_docking, event.started_shipment) {
-            event.inspection_time_minutes = Some((started_shipment - trailer_docking).num_minutes() as i32);
-        }
-
-        if let (Some(started_shipment), Some(lgv_start_loading)) = (event.started_shipment, event.lgv_start_loading) {
-            event.enqueued_time_minutes = Some((lgv_start_loading - started_shipment).num_minutes() as i32);
-        }
     }
 
     /// Inserts a batch of database events.
