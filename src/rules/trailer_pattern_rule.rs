@@ -28,7 +28,7 @@ impl AnalysisRule for TrailerPatternRule {
     fn apply(&self, dock_door: &DockDoor, event: &DockDoorEvent) -> Vec<AnalysisResult> {
         let mut results = Vec::new();
         match event {
-            DockDoorEvent::WmsEvent(e) if e.event_type == "TRL_PTN" => {
+            DockDoorEvent::WmsEvent(e) if e.event_type == "TRK_PTRN" => {
                 if let Some(message_notes) = &e.message_notes {
                     if let Some(pattern_value) = self.parse_trl_ptn_value(message_notes) {
                         if pattern_value > 0 && pattern_value > self.config.severity_threshold {
