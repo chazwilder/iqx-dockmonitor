@@ -37,9 +37,10 @@ impl DockDoorStateManager {
     /// # Returns
     ///
     /// A new instance of `DockDoorStateManager`.
-    pub fn new(settings: &Settings, db_service: Arc<DatabaseService>) -> (Self, Receiver<DockDoorEvent>) {
+    pub async fn new(settings: &Settings, db_service: Arc<DatabaseService>) -> (Self, Receiver<DockDoorEvent>) {
         let door_repository = Arc::new(DoorStateRepository::new());
         door_repository.initialize_from_settings(settings)
+            .await
             .expect("Failed to initialize doors from settings");
         let (_command_sender, command_receiver) = mpsc::channel(100);
         let (event_sender, event_receiver) = mpsc::channel(1000);
@@ -215,11 +216,11 @@ impl DockDoorStateManager {
     }
 
     pub async fn get_door(&self, plant_id: &str, door_name: &str) -> Option<DockDoor> {
-        self.door_repository.get_door_state(plant_id, door_name)
+        self.door_repository.get_door_state(plant_id, door_name).await
     }
 
     pub async fn update_door(&self, plant_id: &str, door: DockDoor) -> Result<(), DockManagerError> {
-        self.door_repository.update_door(plant_id, door)
+        self.door_repository.update_door(plant_id, door).await
     }
 
     pub async fn insert_db_event(&self, event: DbInsert) -> Result<(), DockManagerError> {

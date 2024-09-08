@@ -107,7 +107,7 @@ impl MonitoringWorker {
     /// A boolean indicating whether the item should be kept in the queue
     async fn process_suspended_shipment(&self, plant_id: String, door_name: String, shipment_id: String, suspended_at: NaiveDateTime, user: String) -> bool {
         info!("Processing SuspendedShipment for door: {}, shipment: {}", door_name, shipment_id);
-        if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name) {
+        if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name).await {
             if door_state.loading_status == LoadingStatus::Suspended {
                 let duration = Local::now().naive_local().signed_duration_since(suspended_at);
                 let alert_threshold = Duration::seconds(self.settings.monitoring.suspended_shipment.alert_threshold as i64);
@@ -151,7 +151,7 @@ impl MonitoringWorker {
     /// A boolean indicating whether the item should be kept in the queue
     async fn process_trailer_docked_not_started(&self, plant_id: String, door_name: String, docked_at: NaiveDateTime) -> bool {
         info!("Processing TrailerDockedNotStarted for door: {}", door_name);
-        if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name) {
+        if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name).await {
             info!("Door state: {:?}, Loading status: {:?}", door_state.trailer_state, door_state.loading_status);
             let loading_started = matches!(door_state.loading_status,
                 LoadingStatus::Loading |
@@ -211,7 +211,7 @@ impl MonitoringWorker {
     /// A boolean indicating whether the item should be kept in the queue
     async fn process_shipment_started_load_not_ready(&self, plant_id: String, door_name: String, shipment_id: String, started_at: NaiveDateTime) -> bool {
         info!("Processing ShipmentStartedLoadNotReady for door: {}, shipment: {}", door_name, shipment_id);
-        if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name) {
+        if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name).await {
             if !door_state.check_loading_readiness() {
                 let duration = Local::now().naive_local().signed_duration_since(started_at);
                 let alert_threshold = Duration::seconds(self.settings.monitoring.shipment_started_load_not_ready.alert_threshold as i64);

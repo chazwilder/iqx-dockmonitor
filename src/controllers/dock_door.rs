@@ -116,7 +116,7 @@ impl DockDoorController {
         let db_service = Arc::clone(&self.db_service);
         let door_repository = self.state_manager.get_door_repository();
 
-        let futures: Vec<_> = door_repository.get_all_doors()
+        let futures: Vec<_> = door_repository.get_all_doors().await
             .into_iter()
             .filter(|door| door.assigned_shipment.current_shipment.is_some())
             .map(|door| {
