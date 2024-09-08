@@ -103,11 +103,13 @@ impl WmsDataProcessor {
 
         // Update WMS shipment status
         door.wms_shipment_status = wms_status.wms_shipment_status.clone();
-
-        if door.is_preload != wms_status.is_preload {
-            log::info!("Updating is_preload for door {}: {:?} -> {:?}",
-               door.dock_name, door.is_preload, wms_status.is_preload);
-            door.is_preload = wms_status.is_preload;
+        if wms_status.is_preload.is_some() {
+            if door.is_preload != wms_status.is_preload.unwrap()
+            {
+                log::info!("Updating is_preload for door {}: {:?} -> {:?}",
+               door.dock_name, door.is_preload, wms_status.is_preload.unwrap());
+                door.is_preload = wms_status.is_preload.unwrap();
+            }
         }
 
         // Update door state based on WMS data

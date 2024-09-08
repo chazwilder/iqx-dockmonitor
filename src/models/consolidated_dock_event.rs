@@ -16,5 +16,5 @@ pub struct ConsolidatedDockEvent {
     pub started_shipment: Option<NaiveDateTime>,
     pub lgv_start_loading: Option<NaiveDateTime>,
     pub dock_ready: Option<NaiveDateTime>,
-    pub is_preload: Option<bool>,
+    pub is_preload: bool,
 }

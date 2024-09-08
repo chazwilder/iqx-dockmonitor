@@ -88,8 +88,10 @@ pub struct DockDoor {
     /// The current position state of the trailer (Proper or Improper)
     pub trailer_position_state: TrailerPositionState,
     pub docking_time: Option<NaiveDateTime>,
-    pub is_preload: Option<bool>,
+    pub is_preload: bool,
     pub last_dock_ready_time: Option<NaiveDateTime>,
+    pub dock_assignment: Option<NaiveDateTime>,
+
 
 }
 
@@ -139,8 +141,9 @@ impl DockDoor {
             restraint_state: RestraintState::Unlocked,
             trailer_position_state: TrailerPositionState::Improper,
             docking_time: None,
-            is_preload: None,
+            is_preload: false,
             last_dock_ready_time: None,
+            dock_assignment: None
         };
         for tag in &plant_settings.dock_doors.dock_plc_tags {
             door.sensors.insert(
@@ -524,7 +527,7 @@ impl DockDoor {
 
         self.wms_shipment_status = wms_status.wms_shipment_status.clone();
         if wms_status.is_preload.is_some() {
-            self.is_preload = wms_status.is_preload;
+            self.is_preload = wms_status.is_preload.unwrap();
         }
 
         Ok(events)
