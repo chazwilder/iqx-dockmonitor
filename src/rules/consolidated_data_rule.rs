@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use dashmap::DashMap;
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult};
-use crate::models::{DockDoor, DockDoorEvent, LoadTypeState};
+use crate::models::{DockDoor, DockDoorEvent};
 use crate::errors::DockManagerError;
 use crate::models::consolidated_dock_event::ConsolidatedDockEvent;
 
@@ -42,7 +42,7 @@ impl ConsolidatedDataRule {
                     started_shipment: Some(e.timestamp),
                     lgv_start_loading: None, // This will be updated later
                     dock_ready: door.last_dock_ready_time,
-                    is_preload: door.shipment_type.map(|st| matches!(st, LoadTypeState::Preload)),
+                    is_preload: door.is_preload,
                 });
 
                 self.calculate_durations(&mut entry);

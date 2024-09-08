@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use crate::models::{WmsDoorStatus, DockDoorEvent, DoorState, DockDoor, ShipmentAssignedEvent, ShipmentUnassignedEvent, LoadingStatus, LoadingStatusChangedEvent, DoorStateChangedEvent, LoadTypeState};
+use crate::models::{WmsDoorStatus, DockDoorEvent, DoorState, DockDoor, ShipmentAssignedEvent, ShipmentUnassignedEvent, LoadingStatus, LoadingStatusChangedEvent, DoorStateChangedEvent};
 use crate::errors::DockManagerError;
 use crate::state_management::door_state_repository::DoorStateRepository;
 use std::sync::Arc;
@@ -104,26 +104,10 @@ impl WmsDataProcessor {
         // Update WMS shipment status
         door.wms_shipment_status = wms_status.wms_shipment_status.clone();
 
-        // Update is_preload status
-        if let Some(is_preload) = wms_status.is_preload {
-            let new_shipment_type = if is_preload {
-                LoadTypeState::Preload
-            } else {
-                LoadTypeState::LiveLoad
-            };
-
-            if door.shipment_type != Some(new_shipment_type) {
-                door.shipment_type = Some(new_shipment_type);
-                // Note: If you want to create an event for this change, you would add it here.
-                // For example:
-                // events.push(DockDoorEvent::ShipmentTypeChanged(ShipmentTypeChangedEvent {
-                //     plant_id: wms_status.plant.clone(),
-                //     dock_name: door.dock_name.clone(),
-                //     old_type: door.shipment_type,
-                //     new_type: Some(new_shipment_type),
-                //     timestamp: chrono::Local::now().naive_local(),
-                // }));
-            }
+        if door.is_preload != wms_status.is_preload {
+            log::info!("Updating is_preload for door {}: {:?} -> {:?}",
+               door.dock_name, door.is_preload, wms_status.is_preload);
+            door.is_preload = wms_status.is_preload;
         }
 
         // Update door state based on WMS data

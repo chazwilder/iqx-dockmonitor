@@ -1,7 +1,8 @@
 use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize};
 use sqlx_oldapi::FromRow;
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct ConsolidatedDockEvent {
     pub plant: String,
     pub door_name: String,

@@ -16,7 +16,7 @@ use crate::models::istates::{DoorState, TrailerState, ManualMode, DockLockState,
 use crate::models::istatus::LoadingStatus;
 use crate::models::ievents::{DockAssignedEvent, DockDoorEvent, DockUnassignedEvent, DoorStateChangedEvent, LoadingCompletedEvent, LoadingStartedEvent, LoadingStatusChangedEvent, SensorStateChangedEvent, TrailerDepartedEvent, TrailerDockedEvent};
 use crate::errors::{DockManagerError, DockManagerResult};
-use crate::models::{AssignedShipment, LoadTypeState, RestraintState, ShipmentAssignedEvent, ShipmentUnassignedEvent, TrailerPositionState, TrailerStateChangedEvent, WmsDoorStatus};
+use crate::models::{AssignedShipment, RestraintState, ShipmentAssignedEvent, ShipmentUnassignedEvent, TrailerPositionState, TrailerStateChangedEvent, WmsDoorStatus};
 
 
 /// Represents the result of evaluating a sensor update
@@ -88,7 +88,7 @@ pub struct DockDoor {
     /// The current position state of the trailer (Proper or Improper)
     pub trailer_position_state: TrailerPositionState,
     pub docking_time: Option<NaiveDateTime>,
-    pub shipment_type: Option<LoadTypeState>,
+    pub is_preload: Option<bool>,
     pub last_dock_ready_time: Option<NaiveDateTime>,
 
 }
@@ -139,7 +139,7 @@ impl DockDoor {
             restraint_state: RestraintState::Unlocked,
             trailer_position_state: TrailerPositionState::Improper,
             docking_time: None,
-            shipment_type: None,
+            is_preload: None,
             last_dock_ready_time: None,
         };
         for tag in &plant_settings.dock_doors.dock_plc_tags {
@@ -404,9 +404,6 @@ impl DockDoor {
     fn handle_loading_status_changed(&mut self, event: &LoadingStatusChangedEvent) -> Result<(), DockManagerError> {
         self.loading_status = event.clone().new_status;
         self.last_updated = event.timestamp;
-        if event.clone().new_status == LoadingStatus::Idle {
-            self.shipment_type = None;
-        }
         Ok(())
     }
 
@@ -489,7 +486,7 @@ impl DockDoor {
     /// * `Err(DockManagerError)` if there's an error parsing the loading status from the WMS data
     pub fn update_from_wms(&mut self, wms_status: &WmsDoorStatus) -> DockManagerResult<Vec<DockDoorEvent>> {
         let mut events = Vec::new();
-
+        info!("WMS Door Status: {:?}", wms_status);
         if self.assigned_shipment.current_shipment != wms_status.assigned_shipment {
             let old_shipment = self.assigned_shipment.current_shipment.clone();
             self.assigned_shipment.current_shipment = wms_status.assigned_shipment.clone();
@@ -527,7 +524,7 @@ impl DockDoor {
 
         self.wms_shipment_status = wms_status.wms_shipment_status.clone();
         if wms_status.is_preload.is_some() {
-            self.shipment_type = if wms_status.is_preload.unwrap() == true { Some(LoadTypeState::Preload) } else { Some(LoadTypeState::LiveLoad) };
+            self.is_preload = wms_status.is_preload;
         }
 
         Ok(events)
