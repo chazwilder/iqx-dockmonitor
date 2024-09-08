@@ -89,6 +89,7 @@ pub struct DockDoor {
     pub trailer_position_state: TrailerPositionState,
     pub docking_time: Option<NaiveDateTime>,
     pub shipment_type: Option<LoadTypeState>,
+    pub last_dock_ready_time: Option<NaiveDateTime>,
 
 }
 
@@ -139,6 +140,7 @@ impl DockDoor {
             trailer_position_state: TrailerPositionState::Improper,
             docking_time: None,
             shipment_type: None,
+            last_dock_ready_time: None,
         };
         for tag in &plant_settings.dock_doors.dock_plc_tags {
             door.sensors.insert(
