@@ -1,3 +1,10 @@
+//! # Trailer Docking Rule
+//!
+//! This module defines the `TrailerDockingRule`, which is responsible for analyzing
+//! trailer docking events and determining if a docking operation is successful.
+//! It provides detailed feedback on why a docking operation might fail, which is
+//! crucial for maintenance and troubleshooting.
+
 use crate::models::{DockDoor, DockDoorEvent, TrailerState};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry, AlertType};
 use chrono::Local;
@@ -60,7 +67,7 @@ impl TrailerDockingRule {
         let loading_status_condition = self.check_loading_status(dock_door);
         let wms_status_condition = self.check_wms_status(dock_door);
         let shipment_condition = dock_door.assigned_shipment.current_shipment.is_some();
-        let sensor_condition = self.check_sensors(dock_door);
+        let (sensor_condition, _) = self.check_sensors(dock_door);
 
         debug!(
             "DockDoor: {} - Docking conditions: loading_status={}, wms_status={}, shipment={}, sensors={}",
@@ -107,14 +114,20 @@ impl TrailerDockingRule {
     ///
     /// # Returns
     ///
-    /// A boolean indicating whether all sensors are in their success state
-    fn check_sensors(&self, dock_door: &DockDoor) -> bool {
-        self.config.sensors_to_monitor.iter().all(|sensor| {
-            dock_door.sensors.get(&sensor.name)
+    /// A tuple containing:
+    /// - A boolean indicating whether all sensors are in their success state
+    /// - A vector of tuples, each containing the sensor name and its current state
+    fn check_sensors(&self, dock_door: &DockDoor) -> (bool, Vec<(String, bool)>) {
+        let sensor_states: Vec<(String, bool)> = self.config.sensors_to_monitor.iter().map(|sensor| {
+            let sensor_state = dock_door.sensors.get(&sensor.name)
                 .and_then(|s| s.get_sensor_data().current_value)
                 .map(|value| value == sensor.success_value)
-                .unwrap_or(false)
-        })
+                .unwrap_or(false);
+            (sensor.name.clone(), sensor_state)
+        }).collect();
+
+        let all_sensors_success = sensor_states.iter().all(|(_, state)| *state);
+        (all_sensors_success, sensor_states)
     }
 
     /// Gets the reason for a docking failure
@@ -125,21 +138,25 @@ impl TrailerDockingRule {
     ///
     /// # Returns
     ///
-    /// A string describing the reason for the docking failure
+    /// A string describing the reason(s) for the docking failure
     fn get_failure_reason(&self, dock_door: &DockDoor) -> String {
         let mut reasons = Vec::new();
 
         if !self.check_loading_status(dock_door) {
-            reasons.push("Invalid loading status");
+            reasons.push(format!("Invalid loading status: {:?}", dock_door.loading_status));
         }
         if !self.check_wms_status(dock_door) {
-            reasons.push("Invalid WMS shipment status");
+            reasons.push(format!("Invalid WMS shipment status: {:?}", dock_door.wms_shipment_status));
         }
         if dock_door.assigned_shipment.current_shipment.is_none() {
-            reasons.push("No shipment assigned");
+            reasons.push("No shipment assigned".to_string());
         }
-        if !self.check_sensors(dock_door) {
-            reasons.push("Sensor conditions not met");
+
+        let (_, sensor_states) = self.check_sensors(dock_door);
+        for (sensor_name, sensor_state) in sensor_states {
+            if !sensor_state {
+                reasons.push(format!("Sensor '{}' not in success state", sensor_name));
+            }
         }
 
         if reasons.is_empty() {
@@ -159,11 +176,9 @@ impl TrailerDockingRule {
     ///
     /// A boolean indicating whether this is the first update (i.e., previous values are None)
     fn is_first_update(&self, dock_door: &DockDoor) -> bool {
-        self.config.sensors_to_monitor.iter().any(|sensor| {
-            dock_door.sensors.get(&sensor.name)
+        dock_door.sensors.get("TRAILER_AT_DOOR")
                 .and_then(|s| s.get_sensor_data().previous_value)
                 .is_none()
-        })
     }
 }
 
@@ -208,7 +223,7 @@ impl AnalysisRule for TrailerDockingRule {
                         shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
                         timestamp: e.timestamp,
                         success: is_successful,
-                        failure_reason,
+                        failure_reason: failure_reason.clone(),
                     }));
 
                     let log_entry = LogEntry::DockingTime {
@@ -221,7 +236,7 @@ impl AnalysisRule for TrailerDockingRule {
                         notes: if is_successful {
                             "Trailer docked successfully".to_string()
                         } else {
-                            format!("Trailer docking failed: {}", self.get_failure_reason(dock_door))
+                            format!("Trailer docking failed: {}", failure_reason.unwrap_or_else(|| "Unknown reason".to_string()))
                         },
                         severity: if is_successful { 0 } else { 2 },
                         previous_state: Some(format!("{:?}", e.old_state)),
