@@ -13,7 +13,7 @@ use config::{Config, Environment, File};
 use std::{env, fmt};
 use std::path::PathBuf;
 use secrecy::{Secret, ExposeSecret};
-use log::info;
+use log::{debug, info};
 use url::Url;
 use crate::errors::DockManagerError;
 
@@ -317,7 +317,7 @@ impl Settings {
     pub fn new() -> Result<Self, DockManagerError> {
         let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| "development".into());
         let config_dir = env::var("CONFIG_DIR").unwrap_or_else(|_| "src/config".into());
-        info!("Run Mode: {:?}, Config Dir: {:?}", run_mode, config_dir);
+        debug!("Run Mode: {:?}, Config Dir: {:?}", run_mode, config_dir);
 
         let s = Config::builder()
             .add_source(File::with_name(&format!("{}/default", config_dir)))
