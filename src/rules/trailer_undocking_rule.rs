@@ -40,13 +40,6 @@ impl TrailerUndockingRule {
         debug!("TrailerUndockingRule: Generated undocking log entry: {:?}", log_entry);
         results.push(AnalysisResult::Log(log_entry));
 
-        // Add an alert for the undocking event
-        results.push(AnalysisResult::Alert(AlertType::TrailerUndocked {
-            door_name: door.dock_name.clone(),
-            shipment_id: door.assigned_shipment.current_shipment.clone(),
-            timestamp,
-        }));
-
         results
     }
 }
@@ -54,13 +47,6 @@ impl TrailerUndockingRule {
 impl AnalysisRule for TrailerUndockingRule {
     fn apply(&self, door: &DockDoor, event: &DockDoorEvent) -> Vec<AnalysisResult> {
         match event {
-            DockDoorEvent::TrailerStateChanged(e) => {
-                if e.new_state == TrailerState::Undocked && e.old_state == TrailerState::Docked {
-                    self.generate_undocking_results(door, e.timestamp, &format!("{:?}", e.old_state))
-                } else {
-                    Vec::new()
-                }
-            },
             DockDoorEvent::SensorStateChanged(e) => {
                 if e.sensor_name == "TRAILER_AT_DOOR" && e.new_value == Some(0) {
                     self.generate_undocking_results(door, e.timestamp, "TRAILER_DOCKING")
