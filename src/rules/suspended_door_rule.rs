@@ -141,19 +141,6 @@ impl AnalysisRule for SuspendedDoorRule {
     fn apply(&self, dock_door: &DockDoor, event: &DockDoorEvent) -> Vec<AnalysisResult> {
         info!("SuspendedDoorRule applying to event: {:?}", event);
         match event {
-            DockDoorEvent::LoadingStatusChanged(e) if e.new_status == LoadingStatus::Suspended => {
-                if dock_door.loading_status != LoadingStatus::Suspended {
-                    debug!("Ignoring LoadingStatusChanged event as door is not currently suspended");
-                    return Vec::new();
-                }
-
-                if self.should_send_alert(&dock_door.dock_name) {
-                    let duration = Duration::seconds(0); // Initial suspension
-                    self.generate_suspended_door_results(dock_door, duration, "N/A".to_string(), e.timestamp)
-                } else {
-                    Vec::new()
-                }
-            },
             DockDoorEvent::ShipmentSuspended(e) => {
                 if dock_door.loading_status != LoadingStatus::Suspended {
                     debug!("Ignoring ShipmentSuspended event as door is not currently suspended");
@@ -172,21 +159,8 @@ impl AnalysisRule for SuspendedDoorRule {
 
                     let mut results = self.generate_suspended_door_results(dock_door, duration, user.clone(), e.base_event.timestamp);
 
-                    // Add WmsEvent log entry
-                    results.push(AnalysisResult::Log(LogEntry::WmsEvent {
-                        log_dttm: e.base_event.timestamp,
-                        plant: dock_door.plant_id.clone(),
-                        door_name: dock_door.dock_name.clone(),
-                        shipment_id: Some(e.base_event.shipment_id.clone()),
-                        event_type: "SUSPENDED_SHIPMENT".to_string(),
-                        success: e.base_event.result_code == 0,
-                        notes: format!("Shipment suspended by user {}", user),
-                        severity: if e.base_event.result_code == 0 { 0 } else { 1 },
-                        previous_state: None,
-                        previous_state_dttm: None,
-                        message_source: e.base_event.message_source.clone(),
-                        result_code: e.base_event.result_code,
-                    }));
+                    // Add DbInsert for WMS event
+                    results.push(self.create_wms_db_insert(dock_door, &e.base_event));
 
                     results
                 } else {
