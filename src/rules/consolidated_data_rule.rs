@@ -119,7 +119,12 @@ impl AnalysisRule for ConsolidatedDataRule {
     fn apply(&self, door: &DockDoor, event: &DockDoorEvent) -> Vec<AnalysisResult> {
         match self.update_consolidated_event(door, event) {
             Ok(Some(consolidated_event)) => {
-                vec![AnalysisResult::ConsolidatedEvent(consolidated_event)]
+                // Only return a ConsolidatedEvent result for LgvStartLoading events
+                if let DockDoorEvent::LgvStartLoading(_) = event {
+                    vec![AnalysisResult::ConsolidatedEvent(consolidated_event)]
+                } else {
+                    vec![]
+                }
             },
             Ok(None) => vec![],
             Err(e) => {
