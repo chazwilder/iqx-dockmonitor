@@ -3,6 +3,7 @@ use crate::models::{WmsDoorStatus, DockDoorEvent, DoorState, DockDoor, ShipmentA
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::state_management::door_state_repository::DoorStateRepository;
 use std::sync::Arc;
+use log::info;
 
 /// Processes WMS (Warehouse Management System) data updates for the dock monitoring system.
 pub struct WmsDataProcessor {
@@ -158,12 +159,13 @@ impl WmsDataProcessor {
         let mut events = Vec::new();
 
         for wms_event in wms_events {
+            info!("Converting WMS Event: {:?}", wms_event);
             let mut door = self.door_repository.get_door_state(&wms_event.plant, &wms_event.dock_name).await
                 .ok_or_else(|| DockManagerError::DoorNotFound(wms_event.dock_name.clone()))?;
 
             // Convert WmsEvent to DockDoorEvent
             let dock_door_event = DockDoorEvent::from_wms_event(wms_event.clone());
-
+            info!("Converted WMS Event: {:?}", dock_door_event);
             // Update door state based on WMS event
             if wms_event.message_type == "DOCK_ASSIGNMENT" {
                 door.dock_assignment = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));

@@ -1,3 +1,4 @@
+use log::info;
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry};
 use crate::models::{DockDoor, DockDoorEvent, WmsEventWrapper};
 
@@ -5,6 +6,7 @@ pub struct WmsEventsRule;
 
 impl AnalysisRule for WmsEventsRule {
     fn apply(&self, door: &DockDoor, event: &DockDoorEvent) -> Vec<AnalysisResult> {
+        info!("WmsEventsRule for: {:?}", event);
         match event {
             DockDoorEvent::WmsEvent(e) => vec![create_wms_log_entry(door, e)],
             DockDoorEvent::ShipmentStarted(e) => vec![create_wms_log_entry(door, &e.base_event)],
