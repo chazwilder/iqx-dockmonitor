@@ -157,12 +157,9 @@ impl AnalysisRule for SuspendedDoorRule {
                         .map(|user| user.trim().to_string())
                         .unwrap_or_else(|| "Unknown".to_string());
 
-                    let mut results = self.generate_suspended_door_results(dock_door, duration, user.clone(), e.base_event.timestamp);
+                    debug!("Extracted user name for suspended door alert: {}", user);
 
-                    // Add DbInsert for WMS event
-                    results.push(self.create_wms_db_insert(dock_door, &e.base_event));
-
-                    results
+                    self.generate_suspended_door_results(dock_door, duration, user, e.base_event.timestamp)
                 } else {
                     Vec::new()
                 }
