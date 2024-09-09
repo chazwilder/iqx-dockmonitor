@@ -3,6 +3,7 @@ use crate::models::{WmsDoorStatus, DockDoorEvent, DoorState, DockDoor, ShipmentA
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::state_management::door_state_repository::DoorStateRepository;
 use std::sync::Arc;
+use chrono::Local;
 use log::info;
 
 /// Processes WMS (Warehouse Management System) data updates for the dock monitoring system.
@@ -68,16 +69,22 @@ impl WmsDataProcessor {
         if door.assigned_shipment.current_shipment != wms_status.assigned_shipment {
             let old_shipment = door.assigned_shipment.current_shipment.clone();
             door.assigned_shipment.current_shipment = wms_status.assigned_shipment.clone();
+            door.assigned_shipment.assignment_dttm = Some(Local::now().naive_local());
+            door.dock_assignment = Some(Local::now().naive_local());
+
 
             if let Some(shipment_id) = &wms_status.assigned_shipment {
                 events.push(DockDoorEvent::ShipmentAssigned(ShipmentAssignedEvent {
                     plant_id: wms_status.plant.clone(),
                     dock_name: door.dock_name.clone(),
                     shipment_id: shipment_id.clone(),
-                    timestamp: chrono::Local::now().naive_local(),
+                    timestamp: Local::now().naive_local(),
                     previous_shipment: old_shipment,
                 }));
             } else if let Some(previous_shipment) = old_shipment {
+                door.assigned_shipment.assignment_dttm = None;
+                door.dock_assignment = None;
+
                 events.push(DockDoorEvent::ShipmentUnassigned(ShipmentUnassignedEvent {
                     plant_id: wms_status.plant.clone(),
                     dock_name: door.dock_name.clone(),
