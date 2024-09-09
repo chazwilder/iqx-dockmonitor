@@ -148,12 +148,14 @@ impl DockDoorController {
 
         // Process the resulting DockDoorEvents through the event handler
         let mut db_events = Vec::new();
-        for wms in all_wms_events {
-            let dock_door_dbs = self.handle_wms_event(wms).await?;
-            db_events.push(dock_door_dbs);
-        }
+        // for wms in all_wms_events {
+        //     let dock_door_dbs = self.handle_wms_event(wms).await?;
+        //     db_events.push(dock_door_dbs);
+        // }
+
         for event in dock_door_events {
             let new_db_events = self.event_handler.process_event(event).await?;
+            info!("WMS Events Converted to DBInsert: {:?}", new_db_events);
             db_events.extend(new_db_events);
         }
 
