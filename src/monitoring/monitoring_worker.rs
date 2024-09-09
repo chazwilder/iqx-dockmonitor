@@ -216,7 +216,7 @@ impl MonitoringWorker {
     async fn process_shipment_started_load_not_ready(&self, plant_id: String, door_name: String, shipment_id: String, started_at: NaiveDateTime) -> bool {
         info!("Processing ShipmentStartedLoadNotReady for door: {}, shipment: {}", door_name, shipment_id);
         if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name).await {
-            if !door_state.check_loading_readiness() {
+            if !door_state.check_loading_readiness() && door_state.assigned_shipment.current_shipment.is_some() {
                 let duration = Local::now().naive_local().signed_duration_since(started_at);
                 let alert_threshold = Duration::seconds(self.settings.monitoring.shipment_started_load_not_ready.alert_threshold as i64);
                 let repeat_interval = Duration::seconds(self.settings.monitoring.shipment_started_load_not_ready.repeat_interval as i64);

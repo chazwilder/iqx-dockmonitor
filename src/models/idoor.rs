@@ -91,6 +91,7 @@ pub struct DockDoor {
     pub is_preload: bool,
     pub last_dock_ready_time: Option<NaiveDateTime>,
     pub dock_assignment: Option<NaiveDateTime>,
+    pub shipment_started_dttm: Option<NaiveDateTime>,
 
 
 }
@@ -143,7 +144,8 @@ impl DockDoor {
             docking_time: None,
             is_preload: false,
             last_dock_ready_time: None,
-            dock_assignment: None
+            dock_assignment: None,
+            shipment_started_dttm: None,
         };
         for tag in &plant_settings.dock_doors.dock_plc_tags {
             door.sensors.insert(

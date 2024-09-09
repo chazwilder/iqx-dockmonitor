@@ -169,6 +169,10 @@ impl WmsDataProcessor {
                 door.dock_assignment = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
             }
 
+            if wms_event.message_type == "STARTED_SHIPMENT" {
+                door.shipment_started_dttm = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
+            }
+
             // Update the door in the repository
             self.door_repository.update_door(&wms_event.plant, door).await?;
 
@@ -177,4 +181,5 @@ impl WmsDataProcessor {
 
         Ok(events)
     }
+
 }

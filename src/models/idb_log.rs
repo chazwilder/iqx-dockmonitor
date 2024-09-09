@@ -82,6 +82,21 @@ impl DbInsert {
                     PREVIOUS_STATE: previous_state.clone(),
                     PREVIOUS_STATE_DTTM: *previous_state_dttm,
                 }
+            },
+            LogEntry::WmsEvent { log_dttm, plant, door_name, shipment_id, event_type, success, notes, severity, previous_state, previous_state_dttm, .. } => {
+                DbInsert {
+                    LOG_DTTM: *log_dttm,
+                    PLANT: plant.clone(),
+                    DOOR_NAME: door_name.clone(),
+                    SHIPMENT_ID: shipment_id.clone(),
+                    EVENT_TYPE: event_type.clone(),
+                    SUCCESS: if *success { 1 } else { 0 },
+                    NOTES: notes.clone(),
+                    ID_USER: None,
+                    SEVERITY: *severity,
+                    PREVIOUS_STATE: previous_state.clone(),
+                    PREVIOUS_STATE_DTTM: *previous_state_dttm,
+                }
             }
         }
     }

@@ -13,6 +13,7 @@ pub mod shipment_started_load_not_ready_rule;
 pub mod trailer_undocking_rule;
 pub mod dock_ready_rule;
 pub mod consolidated_data_rule;
+pub mod wms_events_rule;
 
 pub use dynamic_rule_manager::*;
 pub use rule_factory::*;

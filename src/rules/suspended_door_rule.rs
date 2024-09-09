@@ -154,22 +154,41 @@ impl AnalysisRule for SuspendedDoorRule {
                     Vec::new()
                 }
             },
-            DockDoorEvent::WmsEvent(e) if e.event_type == "SUSPENDED_SHIPMENT" => {
+            DockDoorEvent::ShipmentSuspended(e) => {
                 if dock_door.loading_status != LoadingStatus::Suspended {
-                    debug!("Ignoring WMS SUSPENDED_SHIPMENT event as door is not currently suspended");
+                    debug!("Ignoring ShipmentSuspended event as door is not currently suspended");
                     return Vec::new();
                 }
 
                 if self.should_send_alert(&dock_door.dock_name) {
-                    let duration = e.timestamp.signed_duration_since(
-                        dock_door.assigned_shipment.assignment_dttm.unwrap_or(e.timestamp)
+                    let duration = e.base_event.timestamp.signed_duration_since(
+                        dock_door.assigned_shipment.assignment_dttm.unwrap_or(e.base_event.timestamp)
                     );
-                    let user = e.message_notes
+                    let user = e.base_event.message_notes
                         .as_ref()
                         .and_then(|notes| notes.split('-').next())
                         .map(|user| user.trim().to_string())
                         .unwrap_or_else(|| "Unknown".to_string());
-                    self.generate_suspended_door_results(dock_door, duration, user, e.timestamp)
+
+                    let mut results = self.generate_suspended_door_results(dock_door, duration, user.clone(), e.base_event.timestamp);
+
+                    // Add WmsEvent log entry
+                    results.push(AnalysisResult::Log(LogEntry::WmsEvent {
+                        log_dttm: e.base_event.timestamp,
+                        plant: dock_door.plant_id.clone(),
+                        door_name: dock_door.dock_name.clone(),
+                        shipment_id: Some(e.base_event.shipment_id.clone()),
+                        event_type: "SUSPENDED_SHIPMENT".to_string(),
+                        success: e.base_event.result_code == 0,
+                        notes: format!("Shipment suspended by user {}", user),
+                        severity: if e.base_event.result_code == 0 { 0 } else { 1 },
+                        previous_state: None,
+                        previous_state_dttm: None,
+                        message_source: e.base_event.message_source.clone(),
+                        result_code: e.base_event.result_code,
+                    }));
+
+                    results
                 } else {
                     Vec::new()
                 }

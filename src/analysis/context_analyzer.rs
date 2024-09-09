@@ -314,6 +314,20 @@ pub enum LogEntry {
         previous_state: Option<String>,
         previous_state_dttm: Option<NaiveDateTime>,
     },
+    WmsEvent {
+        log_dttm: NaiveDateTime,
+        plant: String,
+        door_name: String,
+        shipment_id: Option<String>,
+        event_type: String,
+        success: bool,
+        notes: String,
+        severity: i32,
+        previous_state: Option<String>,
+        previous_state_dttm: Option<NaiveDateTime>,
+        message_source: String,
+        result_code: i32,
+    },
 }
 
 /// Defines the interface for analysis rules that can be applied to dock door events

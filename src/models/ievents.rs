@@ -1,49 +1,45 @@
-//! # Dock Door Event Definitions
-
-//! This module defines the `DockDoorEvent` enum and its associated structs, which represent the various events that can occur 
-//! within the dock door management system. These events capture changes in sensor states, door states, loading statuses, 
-//! trailer states, and shipment assignments, enabling the system to track and respond to these changes effectively.
-
-
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use crate::models::istates::DoorState;
-use crate::models::istatus::{LoadingStatus};
+use crate::models::istatus::LoadingStatus;
 use crate::models::{DbInsert, TrailerState, WmsEvent};
 
 /// Represents the different types of events that can occur at a dock door
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DockDoorEvent {
-    /// Event indicating that a dock has been assigned to a shipment
     DockAssigned(DockAssignedEvent),
-    /// Event indicating that a dock has been unassigned from a shipment
     DockUnassigned(DockUnassignedEvent),
-    /// Event indicating that a trailer has docked at a door
     TrailerDocked(TrailerDockedEvent),
-    /// Event indicating that a trailer has departed from a door
     TrailerDeparted(TrailerDepartedEvent),
-    /// Event indicating that the loading process has started at a door
     LoadingStarted(LoadingStartedEvent),
-    /// Event indicating that the loading process has been completed at a door
     LoadingCompleted(LoadingCompletedEvent),
-    /// Event indicating that the state of a sensor has changed
     SensorStateChanged(SensorStateChangedEvent),
-    /// Event indicating that the state of a door has changed
     DoorStateChanged(DoorStateChangedEvent),
-    /// Event indicating that the loading status of a door has changed
     LoadingStatusChanged(LoadingStatusChangedEvent),
-    /// Event indicating that the state of a trailer has changed
     TrailerStateChanged(TrailerStateChangedEvent),
-    /// Event indicating that a shipment has been assigned to a door
     ShipmentAssigned(ShipmentAssignedEvent),
-    /// Event indicating that a shipment has been unassigned from a door
     ShipmentUnassigned(ShipmentUnassignedEvent),
-    /// Event originating from the Warehouse Management System (WMS)
     WmsEvent(WmsEventWrapper),
+    ShipmentStarted(ShipmentStartedEvent),
+    ShipmentSuspended(ShipmentSuspendedEvent),
+    ShipmentCancelled(ShipmentCancelledEvent),
+    ShipmentResumed(ShipmentResumedEvent),
+    PriorityUpdated(PriorityUpdatedEvent),
+    LoadPlanSaved(LoadPlanSavedEvent),
+    ShipmentForcedClosed(ShipmentForcedClosedEvent),
+    LoadQuantityAdjusted(LoadQuantityAdjustedEvent),
+    DriverCheckedIn(DriverCheckedInEvent),
+    TrailerRejected(TrailerRejectedEvent),
+    LgvStartLoading(LgvStartLoadingEvent),
+    FirstDrop(FirstDropEvent),
+    ShipmentCheckout(ShipmentCheckoutEvent),
+    TrailerPatternProcessed(TrailerPatternProcessedEvent),
+    AppointmentUpdated(AppointmentUpdatedEvent),
+    TripProcessed(TripProcessedEvent),
+    UnknownWmsEvent(UnknownWmsEventEvent),
 }
 
 impl DockDoorEvent {
-    /// Retrieves the name of the dock associated with the event
     pub fn get_dock_name(&self) -> &str {
         match self {
             DockDoorEvent::DockAssigned(e) => &e.dock_name,
@@ -59,6 +55,23 @@ impl DockDoorEvent {
             DockDoorEvent::LoadingStatusChanged(e) => &e.dock_name,
             DockDoorEvent::TrailerStateChanged(e) => &e.dock_name,
             DockDoorEvent::WmsEvent(e) => &e.dock_name,
+            DockDoorEvent::ShipmentStarted(e) => &e.base_event.dock_name,
+            DockDoorEvent::ShipmentSuspended(e) => &e.base_event.dock_name,
+            DockDoorEvent::ShipmentCancelled(e) => &e.base_event.dock_name,
+            DockDoorEvent::ShipmentResumed(e) => &e.base_event.dock_name,
+            DockDoorEvent::PriorityUpdated(e) => &e.base_event.dock_name,
+            DockDoorEvent::LoadPlanSaved(e) => &e.base_event.dock_name,
+            DockDoorEvent::ShipmentForcedClosed(e) => &e.base_event.dock_name,
+            DockDoorEvent::LoadQuantityAdjusted(e) => &e.base_event.dock_name,
+            DockDoorEvent::DriverCheckedIn(e) => &e.base_event.dock_name,
+            DockDoorEvent::TrailerRejected(e) => &e.base_event.dock_name,
+            DockDoorEvent::LgvStartLoading(e) => &e.base_event.dock_name,
+            DockDoorEvent::FirstDrop(e) => &e.base_event.dock_name,
+            DockDoorEvent::ShipmentCheckout(e) => &e.base_event.dock_name,
+            DockDoorEvent::TrailerPatternProcessed(e) => &e.base_event.dock_name,
+            DockDoorEvent::AppointmentUpdated(e) => &e.base_event.dock_name,
+            DockDoorEvent::TripProcessed(e) => &e.base_event.dock_name,
+            DockDoorEvent::UnknownWmsEvent(e) => &e.base_event.dock_name,
         }
     }
 
@@ -77,24 +90,61 @@ impl DockDoorEvent {
             DockDoorEvent::ShipmentAssigned(e) => &e.plant_id,
             DockDoorEvent::ShipmentUnassigned(e) => &e.plant_id,
             DockDoorEvent::WmsEvent(e) => &e.plant_id,
+            DockDoorEvent::ShipmentStarted(e) => &e.base_event.plant_id,
+            DockDoorEvent::ShipmentSuspended(e) => &e.base_event.plant_id,
+            DockDoorEvent::ShipmentCancelled(e) => &e.base_event.plant_id,
+            DockDoorEvent::ShipmentResumed(e) => &e.base_event.plant_id,
+            DockDoorEvent::PriorityUpdated(e) => &e.base_event.plant_id,
+            DockDoorEvent::LoadPlanSaved(e) => &e.base_event.plant_id,
+            DockDoorEvent::ShipmentForcedClosed(e) => &e.base_event.plant_id,
+            DockDoorEvent::LoadQuantityAdjusted(e) => &e.base_event.plant_id,
+            DockDoorEvent::DriverCheckedIn(e) => &e.base_event.plant_id,
+            DockDoorEvent::TrailerRejected(e) => &e.base_event.plant_id,
+            DockDoorEvent::LgvStartLoading(e) => &e.base_event.plant_id,
+            DockDoorEvent::FirstDrop(e) => &e.base_event.plant_id,
+            DockDoorEvent::ShipmentCheckout(e) => &e.base_event.plant_id,
+            DockDoorEvent::TrailerPatternProcessed(e) => &e.base_event.plant_id,
+            DockDoorEvent::AppointmentUpdated(e) => &e.base_event.plant_id,
+            DockDoorEvent::TripProcessed(e) => &e.base_event.plant_id,
+            DockDoorEvent::UnknownWmsEvent(e) => &e.base_event.plant_id,
         }
     }
 
-    /// Creates a `DockDoorEvent` from a `WmsEvent`
     pub fn from_wms_event(wms_event: WmsEvent) -> Self {
-        DockDoorEvent::WmsEvent(WmsEventWrapper {
-            plant_id: wms_event.plant,
-            dock_name: wms_event.dock_name,
-            shipment_id: wms_event.shipment_id,
-            event_type: wms_event.message_type,
+        let base_event = WmsEventWrapper {
+            plant_id: wms_event.plant.clone(),
+            dock_name: wms_event.dock_name.clone(),
+            shipment_id: wms_event.shipment_id.clone(),
+            event_type: wms_event.message_type.clone(),
             timestamp: wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()),
-            message_source: wms_event.message_source,
-            message_notes: wms_event.message_notes,
+            message_source: wms_event.message_source.clone(),
+            message_notes: wms_event.message_notes.clone(),
             result_code: wms_event.result_code,
-        })
+        };
+
+        match wms_event.message_type.as_str() {
+            "STARTED_SHIPMENT" => DockDoorEvent::ShipmentStarted(ShipmentStartedEvent { base_event }),
+            "SUSPENDED_SHIPMENT" => DockDoorEvent::ShipmentSuspended(ShipmentSuspendedEvent { base_event }),
+            "CANCELLED_SHIPMENT" => DockDoorEvent::ShipmentCancelled(ShipmentCancelledEvent { base_event }),
+            "RESUMED_SHIPMENT" => DockDoorEvent::ShipmentResumed(ShipmentResumedEvent { base_event }),
+            "UPDATED_PRIORITY" => DockDoorEvent::PriorityUpdated(PriorityUpdatedEvent { base_event }),
+            "SDM_LOAD_PLAN" => DockDoorEvent::LoadPlanSaved(LoadPlanSavedEvent { base_event }),
+            "SHIPMENT_FORCED_CLOSED" => DockDoorEvent::ShipmentForcedClosed(ShipmentForcedClosedEvent { base_event }),
+            "LOAD_QTY_ADJUSTED" => DockDoorEvent::LoadQuantityAdjusted(LoadQuantityAdjustedEvent { base_event }),
+            "SDM_CHECK_IN" => DockDoorEvent::DriverCheckedIn(DriverCheckedInEvent { base_event }),
+            "SDM_TRAILER_REJECTION" => DockDoorEvent::TrailerRejected(TrailerRejectedEvent { base_event }),
+            "DOCK_ASSIGNMENT" => DockDoorEvent::DockAssigned(DockAssignedEvent::from(base_event)),
+            "LGV_START_LOADING" => DockDoorEvent::LgvStartLoading(LgvStartLoadingEvent { base_event }),
+            "FIRST_DROP" => DockDoorEvent::FirstDrop(FirstDropEvent { base_event }),
+            "COMPLETED_LOAD" => DockDoorEvent::LoadingCompleted(LoadingCompletedEvent::from(base_event)),
+            "CHECKOUT" => DockDoorEvent::ShipmentCheckout(ShipmentCheckoutEvent { base_event }),
+            "TRK_PTRN" => DockDoorEvent::TrailerPatternProcessed(TrailerPatternProcessedEvent { base_event }),
+            "APPT_UPDATE" => DockDoorEvent::AppointmentUpdated(AppointmentUpdatedEvent { base_event }),
+            "PROCTRIP" => DockDoorEvent::TripProcessed(TripProcessedEvent { base_event }),
+            _ => DockDoorEvent::UnknownWmsEvent(UnknownWmsEventEvent { base_event }),
+        }
     }
 
-    /// Creates a `DockDoorEvent` from a `DbInsert`
     pub fn from_db_insert(db_insert: &DbInsert) -> Self {
         DockDoorEvent::WmsEvent(WmsEventWrapper {
             plant_id: db_insert.PLANT.clone(),
@@ -123,184 +173,244 @@ impl DockDoorEvent {
             DockDoorEvent::SensorStateChanged(_) => None,
             DockDoorEvent::DoorStateChanged(_) => None,
             DockDoorEvent::TrailerStateChanged(_) => None,
+            DockDoorEvent::ShipmentStarted(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::ShipmentSuspended(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::ShipmentCancelled(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::ShipmentResumed(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::PriorityUpdated(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::LoadPlanSaved(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::ShipmentForcedClosed(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::LoadQuantityAdjusted(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::DriverCheckedIn(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::TrailerRejected(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::LgvStartLoading(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::FirstDrop(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::ShipmentCheckout(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::TrailerPatternProcessed(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::AppointmentUpdated(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::TripProcessed(e) => Some(e.base_event.shipment_id.clone()),
+            DockDoorEvent::UnknownWmsEvent(e) => Some(e.base_event.shipment_id.clone()),
         }
     }
 }
 
-/// A wrapper for WMS events, providing additional context for the Dock Manager
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WmsEventWrapper {
-    plant_id: String,
-    /// The name of the dock associated with the event
+    pub plant_id: String,
     pub dock_name: String,
-    /// The ID of the shipment related to the event
     pub shipment_id: String,
-    /// The type of WMS event
     pub event_type: String,
-    /// The timestamp of the event
     pub timestamp: NaiveDateTime,
-    /// The source of the WMS event
     pub message_source: String,
-    /// Additional notes or details about the event
     pub message_notes: Option<String>,
-    /// The result code of the event
     pub result_code: i32,
 }
 
-// ... (other code and docstrings)
-
-/// Represents an event where a dock has been assigned to a shipment.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockAssignedEvent {
     pub plant_id: String,
-    /// The name of the dock that has been assigned.
     pub dock_name: String,
-    /// The ID of the shipment assigned to the dock.
     pub shipment_id: String,
-    /// The timestamp when the dock was assigned.
     pub timestamp: NaiveDateTime,
 }
 
-/// Represents an event where a dock has been unassigned from a shipment.
+impl From<WmsEventWrapper> for DockAssignedEvent {
+    fn from(wrapper: WmsEventWrapper) -> Self {
+        Self {
+            plant_id: wrapper.plant_id,
+            dock_name: wrapper.dock_name,
+            shipment_id: wrapper.shipment_id,
+            timestamp: wrapper.timestamp,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockUnassignedEvent {
     pub plant_id: String,
-    /// The name of the dock that has been unassigned
     pub dock_name: String,
-    /// The ID of the shipment that was unassigned from the dock
     pub shipment_id: String,
-    /// The timestamp when the dock was unassigned
     pub timestamp: NaiveDateTime,
 }
 
-/// Represents an event where a trailer has docked at a door.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrailerDockedEvent {
     pub plant_id: String,
-    /// The name of the dock where the trailer docked
     pub dock_name: String,
-    /// The ID of the shipment associated with the docked trailer
     pub shipment_id: String,
-    /// The timestamp when the trailer docked
     pub timestamp: NaiveDateTime,
 }
 
-/// Represents an event where the loading process has started at a door
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LoadingStartedEvent {
-    pub plant_id: String,
-    /// The name of the dock where loading started
-    pub dock_name: String,
-    /// The ID of the shipment being loaded
-    pub shipment_id: String,
-    /// The timestamp when loading started
-    pub timestamp: NaiveDateTime,
-}
-
-/// Represents an event where the loading process has been completed at a door
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LoadingCompletedEvent {
-    pub plant_id: String,
-    /// The name of the dock where loading was completed
-    pub dock_name: String,
-    /// The ID of the shipment that was loaded
-    pub shipment_id: String,
-    /// The timestamp when loading was completed
-    pub timestamp: NaiveDateTime,
-}
-
-/// Represents an event where a trailer has departed from a door
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrailerDepartedEvent {
     pub plant_id: String,
-    /// The name of the dock from which the trailer departed
     pub dock_name: String,
-    /// The ID of the shipment associated with the departed trailer
     pub shipment_id: String,
-    /// The timestamp when the trailer departed
     pub timestamp: NaiveDateTime,
 }
 
-/// Represents an event where a shipment has been assigned to a door
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ShipmentAssignedEvent {
+pub struct LoadingStartedEvent {
     pub plant_id: String,
-    /// The name of the dock to which the shipment is assigned
     pub dock_name: String,
-    /// The ID of the assigned shipment
     pub shipment_id: String,
-    /// The timestamp when the shipment was assigned
     pub timestamp: NaiveDateTime,
-    /// The ID of the previously assigned shipment (if any)
-    pub previous_shipment: Option<String>,
 }
 
-/// Represents an event where a shipment has been unassigned from a door
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ShipmentUnassignedEvent {
+pub struct LoadingCompletedEvent {
     pub plant_id: String,
-    /// The name of the dock from which the shipment is unassigned
     pub dock_name: String,
-    /// The ID of the unassigned shipment
     pub shipment_id: String,
-    /// The timestamp when the shipment was unassigned
     pub timestamp: NaiveDateTime,
 }
 
-/// Represents an event where the state of a sensor has changed
+impl From<WmsEventWrapper> for LoadingCompletedEvent {
+    fn from(wrapper: WmsEventWrapper) -> Self {
+        Self {
+            plant_id: wrapper.plant_id,
+            dock_name: wrapper.dock_name,
+            shipment_id: wrapper.shipment_id,
+            timestamp: wrapper.timestamp,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SensorStateChangedEvent {
     pub plant_id: String,
-    /// The name of the dock where the sensor is located
     pub dock_name: String,
-    /// The name of the sensor that changed state
     pub sensor_name: String,
-    /// The old value of the sensor
     pub old_value: Option<u8>,
-    /// The new value of the sensor
     pub new_value: Option<u8>,
-    /// The timestamp when the sensor state changed
     pub timestamp: NaiveDateTime,
 }
 
-/// Represents an event where the state of a door has changed
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DoorStateChangedEvent {
     pub plant_id: String,
-    /// The name of the door whose state changed
     pub dock_name: String,
-    /// The previous state of the door
     pub old_state: DoorState,
-    /// The new state of the door
     pub new_state: DoorState,
-    /// The timestamp when the door state changed
     pub timestamp: NaiveDateTime,
 }
 
-/// Represents an event where the loading status of a door has changed
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoadingStatusChangedEvent {
     pub plant_id: String,
-    /// The name of the dock where the loading status changed
     pub dock_name: String,
-    /// The previous loading status
     pub old_status: LoadingStatus,
-    /// The new loading status
     pub new_status: LoadingStatus,
-    /// The timestamp when the loading status changed
     pub timestamp: NaiveDateTime,
 }
 
-/// Represents an event where the state of a trailer has changed
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrailerStateChangedEvent {
     pub plant_id: String,
-    /// The name of the dock associated with the trailer
     pub dock_name: String,
-    /// The previous state of the trailer
     pub old_state: TrailerState,
-    /// The new state of the trailer
     pub new_state: TrailerState,
-    /// The timestamp when the trailer state changed
     pub timestamp: NaiveDateTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShipmentAssignedEvent {
+    pub plant_id: String,
+    pub dock_name: String,
+    pub shipment_id: String,
+    pub timestamp: NaiveDateTime,
+    pub previous_shipment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShipmentUnassignedEvent {
+    pub plant_id: String,
+    pub dock_name: String,
+    pub shipment_id: String,
+    pub timestamp: NaiveDateTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShipmentStartedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShipmentSuspendedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShipmentCancelledEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShipmentResumedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PriorityUpdatedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoadPlanSavedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShipmentForcedClosedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoadQuantityAdjustedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DriverCheckedInEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrailerRejectedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LgvStartLoadingEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FirstDropEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShipmentCheckoutEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrailerPatternProcessedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppointmentUpdatedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TripProcessedEvent {
+    pub base_event: WmsEventWrapper,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnknownWmsEventEvent {
+    pub base_event: WmsEventWrapper,
 }
