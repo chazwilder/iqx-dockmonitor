@@ -17,37 +17,49 @@ impl ConsolidatedDataRule {
     }
 
     fn update_consolidated_event(&self, door: &DockDoor, event: &DockDoorEvent) -> Result<Option<ConsolidatedDockEvent>, DockManagerError> {
+        let shipment_id = event.get_shipment_id().and_then(|id| id.parse::<i32>().ok()).unwrap_or(0);
+        let key = (door.plant_id.clone(), door.dock_name.clone(), shipment_id);
+
+        let mut entry = self.consolidated_events
+            .entry(key.clone())
+            .or_insert_with(|| ConsolidatedDockEvent {
+                plant: door.plant_id.clone(),
+                door_name: door.dock_name.clone(),
+                shipment_id,
+                docking_time_minutes: None,
+                inspection_time_minutes: None,
+                enqueued_time_minutes: None,
+                shipment_assigned: None,
+                dock_assignment: None,
+                trailer_docking: None,
+                started_shipment: None,
+                lgv_start_loading: None,
+                dock_ready: door.dock_assignment,
+                is_preload: door.is_preload,
+            });
+
         match event {
-            DockDoorEvent::LgvStartLoading(e) => {
-                let shipment_id = e.base_event.shipment_id.parse::<i32>().unwrap_or(0);
-                let key = (door.plant_id.clone(), door.dock_name.clone(), shipment_id);
-
-                let mut entry = ConsolidatedDockEvent {
-                    plant: door.plant_id.clone(),
-                    door_name: door.dock_name.clone(),
-                    shipment_id,
-                    docking_time_minutes: None,
-                    inspection_time_minutes: None,
-                    enqueued_time_minutes: None,
-                    shipment_assigned: door.assigned_shipment.assignment_dttm,
-                    dock_assignment: door.dock_assignment,
-                    trailer_docking: door.docking_time,
-                    started_shipment: door.shipment_started_dttm,
-                    lgv_start_loading: Some(e.base_event.timestamp),
-                    dock_ready: door.last_dock_ready_time,
-                    is_preload: door.is_preload,
-                };
-
-                self.calculate_durations(&mut entry);
-
-                self.consolidated_events.insert(key, entry.clone());
-
-                log::info!("Created/Updated consolidated event for shipment {}: {:?}", shipment_id, entry);
-
-                Ok(Some(entry))
+            DockDoorEvent::ShipmentAssigned(e) => {
+                entry.shipment_assigned = Some(e.timestamp);
+                entry.dock_assignment = Some(e.timestamp);
             },
-            _ => Ok(None),
+            DockDoorEvent::TrailerDocked(e) => {
+                entry.trailer_docking = Some(e.timestamp);
+            },
+            DockDoorEvent::ShipmentStarted(e) => {
+                entry.started_shipment = Some(e.base_event.timestamp);
+            },
+            DockDoorEvent::LgvStartLoading(e) => {
+                entry.lgv_start_loading = Some(e.base_event.timestamp);
+            },
+            _ => {}
         }
+
+        self.calculate_durations(&mut entry);
+
+        log::info!("Updated consolidated event for shipment {}: {:?}", shipment_id, entry);
+
+        Ok(Some(entry.clone()))
     }
 
     fn calculate_durations(&self, event: &mut ConsolidatedDockEvent) {
