@@ -92,6 +92,8 @@ pub struct DockDoor {
     pub last_dock_ready_time: Option<NaiveDateTime>,
     pub dock_assignment: Option<NaiveDateTime>,
     pub shipment_started_dttm: Option<NaiveDateTime>,
+    pub lgv_loading_started: Option<NaiveDateTime>,
+    pub lgv_first_drop: Option<NaiveDateTime>,
 
 
 }
@@ -146,6 +148,8 @@ impl DockDoor {
             last_dock_ready_time: None,
             dock_assignment: None,
             shipment_started_dttm: None,
+            lgv_loading_started: None,
+            lgv_first_drop: None,
         };
         for tag in &plant_settings.dock_doors.dock_plc_tags {
             door.sensors.insert(
