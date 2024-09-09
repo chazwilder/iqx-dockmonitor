@@ -153,8 +153,10 @@ impl EventHandler {
                     db_events.push(db_insert);
                 },
                 AnalysisResult::ConsolidatedEvent(consolidated_event) => {
-                    if let Err(e) = self.consolidated_event_sender.send(consolidated_event).await {
-                        error!("Failed to send consolidated event: {:?}", e);
+                    if let DockDoorEvent::LgvStartLoading(_) = event {
+                        if let Err(e) = self.consolidated_event_sender.send(consolidated_event).await {
+                            error!("Failed to send consolidated event: {:?}", e);
+                        }
                     }
                 }
             }
