@@ -142,7 +142,7 @@
             info!("SuspendedDoorRule applying to event: {:?}", event);
             match event {
                 DockDoorEvent::ShipmentSuspended(e) => {
-                    if dock_door.loading_status != LoadingStatus::Suspended {
+                    if dock_door.loading_status.loading_status != LoadingStatus::Suspended {
                         debug!("Ignoring ShipmentSuspended event as door is not currently suspended");
                         return Vec::new();
                     }

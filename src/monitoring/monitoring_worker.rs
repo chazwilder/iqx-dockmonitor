@@ -112,7 +112,7 @@ impl MonitoringWorker {
     async fn process_suspended_shipment(&self, plant_id: String, door_name: String, shipment_id: String, suspended_at: NaiveDateTime, user: String) -> bool {
         info!("Processing SuspendedShipment for door: {}, shipment: {}", door_name, shipment_id);
         if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name).await {
-            if door_state.loading_status == LoadingStatus::Suspended {
+            if door_state.loading_status.loading_status == LoadingStatus::Suspended {
                 let duration = Local::now().naive_local().signed_duration_since(suspended_at);
                 let alert_threshold = Duration::seconds(self.settings.monitoring.suspended_shipment.alert_threshold as i64);
                 let repeat_interval = Duration::seconds(self.settings.monitoring.suspended_shipment.repeat_interval as i64);
@@ -157,7 +157,7 @@ impl MonitoringWorker {
         info!("Processing TrailerDockedNotStarted for door: {}", door_name);
         if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name).await {
             info!("Door state: {:?}, Loading status: {:?}", door_state.trailer_state, door_state.loading_status);
-            let loading_started = matches!(door_state.loading_status,
+            let loading_started = matches!(door_state.loading_status.loading_status,
                 LoadingStatus::Loading |
                 LoadingStatus::Suspended |
                 LoadingStatus::Completed |
@@ -260,8 +260,8 @@ impl MonitoringWorker {
     async fn process_trailer_hostage(&self, plant_id: String, door_name: String, shipment_id: Option<String>, detected_at: NaiveDateTime) -> bool {
         info!("Processing TrailerHostage for door: {}, shipment: {:?}", door_name, shipment_id);
         if let Some(door_state) = self.door_repository.get_door_state(&plant_id, &door_name).await {
-            let is_hostage_situation = (door_state.loading_status == LoadingStatus::Completed ||
-                door_state.loading_status == LoadingStatus::WaitingForExit) &&
+            let is_hostage_situation = (door_state.loading_status.previous_loading_status == LoadingStatus::Completed ||
+                door_state.loading_status.loading_status == LoadingStatus::WaitingForExit) &&
                 door_state.trailer_state == TrailerState::Docked &&
                 door_state.manual_mode == ManualMode::Enabled;
 

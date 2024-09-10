@@ -38,7 +38,7 @@ impl NewShipmentPreviousTrailerPresentRule {
     ///
     /// * `true` if the previous shipment is complete, `false` otherwise
     fn is_previous_shipment_complete(&self, dock_door: &DockDoor) -> bool {
-        if let Some(status) = &dock_door.wms_shipment_status {
+        if let Some(status) = &dock_door.loading_status.wms_shipment_status {
             self.config.completion_statuses.contains(status)
         } else {
             false

@@ -98,19 +98,25 @@ impl WmsDataProcessor {
         let new_loading_status = LoadingStatus::from_str(&wms_status.loading_status)
             .map_err(|_| DockManagerError::ConfigError(format!("Invalid loading status: {}", wms_status.loading_status)))?;
 
-        if door.loading_status != new_loading_status {
+        if door.loading_status.loading_status != new_loading_status {
             events.push(DockDoorEvent::LoadingStatusChanged(LoadingStatusChangedEvent {
                 plant_id: wms_status.plant.clone(),
                 dock_name: door.dock_name.clone(),
-                old_status: door.loading_status,
+                old_status: door.loading_status.loading_status,
                 new_status: new_loading_status,
                 timestamp: chrono::Local::now().naive_local(),
             }));
-            door.loading_status = new_loading_status;
+
+            // Archiving previous state
+            door.loading_status.previous_loading_status = door.loading_status.loading_status;
+            door.loading_status.previous_state_dttm = door.loading_status.current_state_dttm;
+            door.loading_status.loading_status = new_loading_status;
+            door.loading_status.current_state_dttm = Some(Local::now().naive_local());
+
         }
 
         // Update WMS shipment status
-        door.wms_shipment_status = wms_status.wms_shipment_status.clone();
+        door.loading_status.wms_shipment_status = wms_status.wms_shipment_status.clone();
         if wms_status.is_preload.is_some() {
             if door.is_preload != wms_status.is_preload.unwrap()
             {

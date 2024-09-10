@@ -87,7 +87,7 @@ impl TrailerDockingRule {
     ///
     /// A boolean indicating whether the loading status is valid
     fn check_loading_status(&self, dock_door: &DockDoor) -> bool {
-        dock_door.loading_status.to_string() != self.config.invalid_loading_status
+        dock_door.loading_status.loading_status.to_string() != self.config.invalid_loading_status
     }
 
     /// Checks if the WMS shipment status is valid for successful docking
@@ -100,7 +100,7 @@ impl TrailerDockingRule {
     ///
     /// A boolean indicating whether the WMS shipment status is valid
     fn check_wms_status(&self, dock_door: &DockDoor) -> bool {
-        dock_door.wms_shipment_status
+        dock_door.loading_status.wms_shipment_status
             .as_ref()
             .map(|status| status != &self.config.invalid_wms_shipment_status)
             .unwrap_or(false)
@@ -146,7 +146,7 @@ impl TrailerDockingRule {
             reasons.push(format!("Invalid loading status: {:?}", dock_door.loading_status));
         }
         if !self.check_wms_status(dock_door) {
-            reasons.push(format!("Invalid WMS shipment status: {:?}", dock_door.wms_shipment_status));
+            reasons.push(format!("Invalid WMS shipment status: {:?}", dock_door.loading_status.wms_shipment_status));
         }
         if dock_door.assigned_shipment.current_shipment.is_none() {
             reasons.push("No shipment assigned".to_string());
