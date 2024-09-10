@@ -43,6 +43,17 @@ pub struct LoadStatusState {
     pub last_polling_dttm: Option<NaiveDateTime>
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ConsolidatedDataState {
+    pub docking_time: Option<NaiveDateTime>,
+    pub is_preload: bool,
+    pub last_dock_ready_time: Option<NaiveDateTime>,
+    pub dock_assignment: Option<NaiveDateTime>,
+    pub shipment_started_dttm: Option<NaiveDateTime>,
+    pub lgv_loading_started: Option<NaiveDateTime>,
+    pub lgv_first_drop: Option<NaiveDateTime>,
+}
+
 /// Represents the state and data associated with a single dock door.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockDoor {
@@ -94,14 +105,7 @@ pub struct DockDoor {
     pub restraint_state: RestraintState,
     /// The current position state of the trailer (Proper or Improper)
     pub trailer_position_state: TrailerPositionState,
-    pub docking_time: Option<NaiveDateTime>,
-    pub is_preload: bool,
-    pub last_dock_ready_time: Option<NaiveDateTime>,
-    pub dock_assignment: Option<NaiveDateTime>,
-    pub shipment_started_dttm: Option<NaiveDateTime>,
-    pub lgv_loading_started: Option<NaiveDateTime>,
-    pub lgv_first_drop: Option<NaiveDateTime>,
-
+    pub consolidated: ConsolidatedDataState,
 
 }
 
@@ -130,6 +134,15 @@ impl DockDoor {
             previous_state_dttm: None,
             last_polling_dttm: None
         };
+        let consolidated = ConsolidatedDataState{
+            docking_time: None,
+            is_preload: false,
+            last_dock_ready_time: None,
+            dock_assignment: None,
+            shipment_started_dttm: None,
+            lgv_loading_started: None,
+            lgv_first_drop: None,
+        };
         let mut door = DockDoor {
             plant_id,
             dock_name: dock_name.clone(),
@@ -155,13 +168,7 @@ impl DockDoor {
             leveler_fault: false,
             restraint_state: RestraintState::Unlocked,
             trailer_position_state: TrailerPositionState::Improper,
-            docking_time: None,
-            is_preload: false,
-            last_dock_ready_time: None,
-            dock_assignment: None,
-            shipment_started_dttm: None,
-            lgv_loading_started: None,
-            lgv_first_drop: None,
+            consolidated,
         };
         for tag in &plant_settings.dock_doors.dock_plc_tags {
             door.sensors.insert(
@@ -456,17 +463,17 @@ impl DockDoor {
 
     /// Sets the docking time to the current time
     pub fn set_docking_time(&mut self) {
-        self.docking_time = Some(chrono::Local::now().naive_local());
+        self.consolidated.docking_time = Some(chrono::Local::now().naive_local());
     }
 
     /// Clears the docking time
     pub fn clear_docking_time(&mut self) {
-        self.docking_time = None;
+        self.consolidated.docking_time = None;
     }
 
     /// Calculates the duration since docking, if applicable
     pub fn docking_duration(&self) -> Option<chrono::Duration> {
-        self.docking_time.map(|docking_time| {
+        self.consolidated.docking_time.map(|docking_time| {
             chrono::Local::now().naive_local().signed_duration_since(docking_time)
         })
     }
@@ -538,7 +545,7 @@ impl DockDoor {
 
         self.loading_status.wms_shipment_status = wms_status.wms_shipment_status.clone();
         if wms_status.is_preload.is_some() {
-            self.is_preload = wms_status.is_preload.unwrap();
+            self.consolidated.is_preload = wms_status.is_preload.unwrap();
         }
 
         Ok(events)
