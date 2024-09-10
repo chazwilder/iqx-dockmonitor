@@ -64,7 +64,7 @@ async fn run() -> Result<()> {
         }
     });
 
-    // New task: Hourly rack space utilization check
+    // Hourly rack space utilization check
     let rack_space_context = Arc::clone(&context);
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(3600));
