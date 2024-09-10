@@ -138,8 +138,15 @@ impl fmt::Display for Alert {
             AlertType::DockReady => format!("✅ DOCK READY: Door {}", self.door_name),
             AlertType::TrailerUndocked => format!("🚚 TRAILER UNDOCKED: Door {}", self.door_name),
             AlertType::RackSpace => {
-                let plant = self.additional_info.get("plant").map_or("Unknown", |s| s);
-                format!("🚨 LOW RACK SPACE ALERT: Plant {}", plant)
+                let send_info = self.additional_info.get("info");
+                if send_info.is_none() {
+                    let plant = self.additional_info.get("plant").map_or("Unknown", |s| s);
+                    format!("🚨 LOW RACK SPACE ALERT: Plant {}", plant)
+                } else {
+                    let plant = self.additional_info.get("plant").map_or("Unknown", |s| s);
+                    format!("✅✅ RACK SPACE GOOD!: Plant {}", plant)
+                }
+
             },
         };
 

@@ -83,6 +83,15 @@ async fn run() -> Result<()> {
                             if let Err(e) = rack_space_context.alert_manager.handle_alert(alert).await {
                                 error!("Failed to send rack space alert: {:?}", e);
                             }
+                        } else {
+                            let alert = Alert::new(AlertType::RackSpace, "RackSpace".to_string())
+                                .add_info("info".to_string(), "true".to_string())
+                                .add_info("plant".to_string(), plant_id.clone())
+                                .add_info("empty_spaces".to_string(), count.to_string())
+                                .build();
+                            if let Err(e) = rack_space_context.alert_manager.handle_alert(alert).await {
+                                error!("Failed to send rack space alert: {:?}", e);
+                            }
                         }
                     },
                     Err(e) => {
