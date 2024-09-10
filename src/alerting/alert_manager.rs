@@ -41,6 +41,7 @@ pub enum AlertType {
     TrailerDocked,
     DockReady,
     TrailerUndocked,
+    RackSpace
 }
 
 /// Represents an alert with all its associated information
@@ -136,6 +137,10 @@ impl fmt::Display for Alert {
             },
             AlertType::DockReady => format!("✅ DOCK READY: Door {}", self.door_name),
             AlertType::TrailerUndocked => format!("🚚 TRAILER UNDOCKED: Door {}", self.door_name),
+            AlertType::RackSpace => {
+                let plant = self.additional_info.get("plant").map_or("Unknown", |s| s);
+                format!("🚨 LOW RACK SPACE ALERT: Plant {}", plant)
+            },
         };
 
         let mut full_msg = base_msg;
@@ -146,14 +151,16 @@ impl fmt::Display for Alert {
             full_msg.push_str(&format!(" - Duration: {}", format_duration(&duration)));
         }
         for (key, value) in &self.additional_info {
-            if key.contains("timestamp") {
-                if let Ok(val) = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S%.f") {
-                    full_msg.push_str(&format!(" - {}: {}", key, val.format("%Y-%m-%d %H:%M:%S")));
+            if key != "plant" || self.alert_type != AlertType::RackSpace {
+                if key.contains("timestamp") {
+                    if let Ok(val) = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S%.f") {
+                        full_msg.push_str(&format!(" - {}: {}", key, val.format("%Y-%m-%d %H:%M:%S")));
+                    } else {
+                        full_msg.push_str(&format!(" - {}: {}", key, value));
+                    }
                 } else {
                     full_msg.push_str(&format!(" - {}: {}", key, value));
                 }
-            } else {
-                full_msg.push_str(&format!(" - {}: {}", key, value));
             }
         }
 
