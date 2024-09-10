@@ -70,7 +70,7 @@ impl WmsDataProcessor {
             let old_shipment = door.assigned_shipment.current_shipment.clone();
             door.assigned_shipment.current_shipment = wms_status.assigned_shipment.clone();
             door.assigned_shipment.assignment_dttm = Some(Local::now().naive_local());
-            door.dock_assignment = Some(Local::now().naive_local());
+            door.consolidated.dock_assignment = Some(Local::now().naive_local());
 
 
             if let Some(shipment_id) = &wms_status.assigned_shipment {
@@ -83,7 +83,7 @@ impl WmsDataProcessor {
                 }));
             } else if let Some(previous_shipment) = old_shipment {
                 door.assigned_shipment.assignment_dttm = None;
-                door.dock_assignment = None;
+                door.consolidated.dock_assignment = None;
 
                 events.push(DockDoorEvent::ShipmentUnassigned(ShipmentUnassignedEvent {
                     plant_id: wms_status.plant.clone(),
@@ -98,25 +98,31 @@ impl WmsDataProcessor {
         let new_loading_status = LoadingStatus::from_str(&wms_status.loading_status)
             .map_err(|_| DockManagerError::ConfigError(format!("Invalid loading status: {}", wms_status.loading_status)))?;
 
-        if door.loading_status != new_loading_status {
+        if door.loading_status.loading_status != new_loading_status {
             events.push(DockDoorEvent::LoadingStatusChanged(LoadingStatusChangedEvent {
                 plant_id: wms_status.plant.clone(),
                 dock_name: door.dock_name.clone(),
-                old_status: door.loading_status,
+                old_status: door.loading_status.loading_status,
                 new_status: new_loading_status,
                 timestamp: chrono::Local::now().naive_local(),
             }));
-            door.loading_status = new_loading_status;
+
+            // Archiving previous state
+            door.loading_status.previous_loading_status = door.loading_status.loading_status;
+            door.loading_status.previous_state_dttm = door.loading_status.current_state_dttm;
+            door.loading_status.loading_status = new_loading_status;
+            door.loading_status.current_state_dttm = Some(Local::now().naive_local());
+
         }
 
         // Update WMS shipment status
-        door.wms_shipment_status = wms_status.wms_shipment_status.clone();
+        door.loading_status.wms_shipment_status = wms_status.wms_shipment_status.clone();
         if wms_status.is_preload.is_some() {
-            if door.is_preload != wms_status.is_preload.unwrap()
+            if door.consolidated.is_preload != wms_status.is_preload.unwrap()
             {
                 log::info!("Updating is_preload for door {}: {:?} -> {:?}",
-               door.dock_name, door.is_preload, wms_status.is_preload.unwrap());
-                door.is_preload = wms_status.is_preload.unwrap();
+               door.dock_name, door.consolidated.is_preload, wms_status.is_preload.unwrap());
+                door.consolidated.is_preload = wms_status.is_preload.unwrap();
             }
         }
 
@@ -175,19 +181,19 @@ impl WmsDataProcessor {
             info!("Converted WMS Event: {:?}", dock_door_event);
             // Update door state based on WMS event
             if wms_event.message_type == "DOCK_ASSIGNMENT" {
-                door.dock_assignment = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
+                door.consolidated.dock_assignment = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
             }
 
             if wms_event.message_type == "STARTED_SHIPMENT" {
-                door.shipment_started_dttm = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
+                door.consolidated.shipment_started_dttm = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
             }
 
             if wms_event.message_type == "LGV_START_LOADING" {
-                door.lgv_loading_started = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
+                door.consolidated.lgv_loading_started = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
             }
 
             if wms_event.message_type == "FIRST_DROP" {
-                door.lgv_loading_started = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
+                door.consolidated.lgv_loading_started = Some(wms_event.log_dttm.unwrap_or_else(|| chrono::Local::now().naive_local()));
             }
 
 

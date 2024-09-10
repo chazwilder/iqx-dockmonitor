@@ -126,12 +126,12 @@ impl SensorDataProcessor {
                     (door.door_state == DoorState::TrailerDocked || door.door_state == DoorState::Unassigned) {
                     if let Some(old_value) = door.sensors.get("RH_DOCK_READY").and_then(|s| s.get_sensor_data().current_value) {
                         if old_value == 0 {
-                            door.last_dock_ready_time = Some(Local::now().naive_local());
+                            door.consolidated.last_dock_ready_time = Some(Local::now().naive_local());
                             self.change_door_state(door, DoorState::DoorReady, events)?;
                         }
                     }
                 } else {
-                    door.last_dock_ready_time = None;
+                    door.consolidated.last_dock_ready_time = None;
                 }
             },
             "RH_DOKLOCK_FAULT" => {

@@ -82,8 +82,8 @@ impl AnalysisRule for LongLoadingStartRule {
                 let loading_duration = Local::now().naive_local().signed_duration_since(e.timestamp);
                 if loading_duration > Duration::seconds(self.config.alert_threshold as i64) {
                     // Check if the loading progress is still 0%
-                    if dock_door.wms_shipment_status == Some("Started".to_string()) &&
-                        dock_door.loading_status == LoadingStatus::Loading {
+                    if dock_door.loading_status.wms_shipment_status == Some("Started".to_string()) &&
+                        dock_door.loading_status.loading_status == LoadingStatus::Loading {
                         if self.should_send_alert(&dock_door.dock_name) {
                             results.push(AnalysisResult::Alert(AlertType::LongLoadingStart {
                                 door_name: dock_door.dock_name.clone(),
@@ -97,7 +97,7 @@ impl AnalysisRule for LongLoadingStartRule {
             DockDoorEvent::WmsEvent(e) if e.event_type == "STARTED_SHIPMENT" => {
                 let loading_duration = Local::now().naive_local().signed_duration_since(e.timestamp);
                 if loading_duration > Duration::seconds(self.config.alert_threshold as i64) {
-                    if dock_door.loading_status == LoadingStatus::Loading {
+                    if dock_door.loading_status.loading_status == LoadingStatus::Loading {
                         if self.should_send_alert(&dock_door.dock_name) {
                             results.push(AnalysisResult::Alert(AlertType::LongLoadingStart {
                                 door_name: dock_door.dock_name.clone(),

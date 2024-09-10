@@ -72,8 +72,8 @@ impl TrailerHostageRule {
     ///
     /// A boolean indicating whether a hostage situation is occurring
     fn is_hostage_situation(&self, dock_door: &DockDoor) -> bool {
-        (dock_door.loading_status == LoadingStatus::Completed ||
-            dock_door.loading_status == LoadingStatus::WaitingForExit) &&
+        (dock_door.loading_status.loading_status == LoadingStatus::Completed ||
+            dock_door.loading_status.loading_status == LoadingStatus::WaitingForExit) &&
             dock_door.trailer_state == TrailerState::Docked &&
             dock_door.manual_mode == ManualMode::Enabled
     }

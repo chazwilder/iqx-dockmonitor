@@ -30,6 +30,30 @@ pub struct SensorEvaluation {
     pub new_value: Option<u8>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LoadStatusState {
+    /// The current loading status of the door (e.g., Idle, Loading, Completed).
+    pub loading_status: LoadingStatus,
+    pub current_state_dttm: Option<NaiveDateTime>,
+    /// The previous loading status of the door.
+    pub previous_loading_status: LoadingStatus,
+    pub previous_state_dttm: Option<NaiveDateTime>,
+    /// The shipment status as reported by the WMS.
+    pub wms_shipment_status: Option<String>,
+    pub last_polling_dttm: Option<NaiveDateTime>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ConsolidatedDataState {
+    pub docking_time: Option<NaiveDateTime>,
+    pub is_preload: bool,
+    pub last_dock_ready_time: Option<NaiveDateTime>,
+    pub dock_assignment: Option<NaiveDateTime>,
+    pub shipment_started_dttm: Option<NaiveDateTime>,
+    pub lgv_loading_started: Option<NaiveDateTime>,
+    pub lgv_first_drop: Option<NaiveDateTime>,
+}
+
 /// Represents the state and data associated with a single dock door.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockDoor {
@@ -39,18 +63,12 @@ pub struct DockDoor {
     pub dock_name: String,
     /// The IP address of the PLC controlling the dock door.
     pub dock_ip: String,
-    /// The number of times manual intervention has been required for this door.
-    pub manual_intervention_count: i32,
-    /// The current loading status of the door (e.g., Idle, Loading, Completed).
-    pub loading_status: LoadingStatus,
-    /// The shipment status as reported by the WMS.
-    pub wms_shipment_status: Option<String>,
-    /// The previous loading status of the door.
-    pub previous_loading_status: LoadingStatus,
     /// The current operational state of the door (e.g., Unassigned, TrailerDocked, Loading).
     pub door_state: DoorState,
     /// The previous operational state of the door
     pub previous_door_state: DoorState,
+    /// The current loading status of the door (e.g., Idle, Loading, Completed).
+    pub loading_status: LoadStatusState,
     /// The current state of the trailer at the door (Docked or Undocked).
     pub trailer_state: TrailerState,
     /// The previous state of the trailer at the door
@@ -87,14 +105,7 @@ pub struct DockDoor {
     pub restraint_state: RestraintState,
     /// The current position state of the trailer (Proper or Improper)
     pub trailer_position_state: TrailerPositionState,
-    pub docking_time: Option<NaiveDateTime>,
-    pub is_preload: bool,
-    pub last_dock_ready_time: Option<NaiveDateTime>,
-    pub dock_assignment: Option<NaiveDateTime>,
-    pub shipment_started_dttm: Option<NaiveDateTime>,
-    pub lgv_loading_started: Option<NaiveDateTime>,
-    pub lgv_first_drop: Option<NaiveDateTime>,
-
+    pub consolidated: ConsolidatedDataState,
 
 }
 
@@ -115,14 +126,28 @@ impl DockDoor {
     /// # Returns:
     /// A new `DockDoor` instance
     pub fn new(plant_id: String, dock_name: String, dock_ip: String, plant_settings: &PlantSettings) -> Self {
+        let loading_status = LoadStatusState {
+            loading_status: LoadingStatus::Idle,
+            current_state_dttm: None,
+            previous_loading_status: LoadingStatus::Idle,
+            wms_shipment_status: None,
+            previous_state_dttm: None,
+            last_polling_dttm: None
+        };
+        let consolidated = ConsolidatedDataState{
+            docking_time: None,
+            is_preload: false,
+            last_dock_ready_time: None,
+            dock_assignment: None,
+            shipment_started_dttm: None,
+            lgv_loading_started: None,
+            lgv_first_drop: None,
+        };
         let mut door = DockDoor {
             plant_id,
             dock_name: dock_name.clone(),
             dock_ip: dock_ip.clone(),
-            manual_intervention_count: 0,
-            loading_status: LoadingStatus::Idle,
-            wms_shipment_status: None,
-            previous_loading_status: LoadingStatus::Idle,
+            loading_status,
             door_state: DoorState::Unassigned,
             previous_door_state: DoorState::Unassigned,
             trailer_state: TrailerState::Undocked,
@@ -143,13 +168,7 @@ impl DockDoor {
             leveler_fault: false,
             restraint_state: RestraintState::Unlocked,
             trailer_position_state: TrailerPositionState::Improper,
-            docking_time: None,
-            is_preload: false,
-            last_dock_ready_time: None,
-            dock_assignment: None,
-            shipment_started_dttm: None,
-            lgv_loading_started: None,
-            lgv_first_drop: None,
+            consolidated,
         };
         for tag in &plant_settings.dock_doors.dock_plc_tags {
             door.sensors.insert(
@@ -335,7 +354,7 @@ impl DockDoor {
     ///
     /// * `Ok(())` if the event was handled successfully
     fn handle_loading_started(&mut self, event: &LoadingStartedEvent) -> Result<(), DockManagerError> {
-        self.loading_status = LoadingStatus::Loading;
+        self.loading_status.loading_status = LoadingStatus::Loading;
         self.door_state = DoorState::Loading;
         self.last_updated = event.timestamp;
         Ok(())
@@ -354,7 +373,7 @@ impl DockDoor {
     ///
     /// * `Ok(())` if the event was handled successfully
     fn handle_loading_completed(&mut self, event: &LoadingCompletedEvent) -> Result<(), DockManagerError> {
-        self.loading_status = LoadingStatus::Completed;
+        self.loading_status.loading_status = LoadingStatus::Completed;
         self.door_state = DoorState::LoadingCompleted;
         self.last_updated = event.timestamp;
         Ok(())
@@ -411,7 +430,7 @@ impl DockDoor {
     ///
     /// * `Ok(())` if the event was handled successfully
     fn handle_loading_status_changed(&mut self, event: &LoadingStatusChangedEvent) -> Result<(), DockManagerError> {
-        self.loading_status = event.clone().new_status;
+        self.loading_status.loading_status = event.clone().new_status;
         self.last_updated = event.timestamp;
         Ok(())
     }
@@ -444,17 +463,17 @@ impl DockDoor {
 
     /// Sets the docking time to the current time
     pub fn set_docking_time(&mut self) {
-        self.docking_time = Some(chrono::Local::now().naive_local());
+        self.consolidated.docking_time = Some(chrono::Local::now().naive_local());
     }
 
     /// Clears the docking time
     pub fn clear_docking_time(&mut self) {
-        self.docking_time = None;
+        self.consolidated.docking_time = None;
     }
 
     /// Calculates the duration since docking, if applicable
     pub fn docking_duration(&self) -> Option<chrono::Duration> {
-        self.docking_time.map(|docking_time| {
+        self.consolidated.docking_time.map(|docking_time| {
             chrono::Local::now().naive_local().signed_duration_since(docking_time)
         })
     }
@@ -471,13 +490,6 @@ impl DockDoor {
         self.last_updated = chrono::Local::now().naive_local();
     }
 
-    /// Increments the manual intervention count for the door
-    ///
-    /// Also updates the `last_updated` timestamp
-    pub fn increment_manual_intervention(&mut self) {
-        self.manual_intervention_count += 1;
-        self.last_updated = chrono::Local::now().naive_local();
-    }
 
     // Updates the door's state based on information from the WMS
     ///
@@ -520,20 +532,20 @@ impl DockDoor {
 
         let new_loading_status = LoadingStatus::from_str(&wms_status.loading_status)
             .unwrap_or(LoadingStatus::Idle);
-        if self.loading_status != new_loading_status {
+        if self.loading_status.loading_status != new_loading_status {
             events.push(DockDoorEvent::LoadingStatusChanged(LoadingStatusChangedEvent {
                 plant_id: wms_status.plant.clone(),
                 dock_name: self.dock_name.clone(),
-                old_status: self.loading_status,
+                old_status: self.loading_status.loading_status,
                 new_status: new_loading_status,
                 timestamp: chrono::Local::now().naive_local(),
             }));
-            self.loading_status = new_loading_status;
+            self.loading_status.loading_status = new_loading_status;
         }
 
-        self.wms_shipment_status = wms_status.wms_shipment_status.clone();
+        self.loading_status.wms_shipment_status = wms_status.wms_shipment_status.clone();
         if wms_status.is_preload.is_some() {
-            self.is_preload = wms_status.is_preload.unwrap();
+            self.consolidated.is_preload = wms_status.is_preload.unwrap();
         }
 
         Ok(events)

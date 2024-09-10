@@ -27,12 +27,12 @@ impl ConsolidatedDataRule {
             inspection_time_minutes,
             enqueued_time_minutes,
             shipment_assigned: door.assigned_shipment.assignment_dttm,
-            dock_assignment: door.dock_assignment,
-            trailer_docking: door.docking_time,
-            started_shipment: door.shipment_started_dttm,
+            dock_assignment: door.consolidated.dock_assignment,
+            trailer_docking: door.consolidated.docking_time,
+            started_shipment: door.consolidated.shipment_started_dttm,
             lgv_start_loading: Some(event.base_event.timestamp),
-            dock_ready: door.last_dock_ready_time,
-            is_preload: door.is_preload,
+            dock_ready: door.consolidated.last_dock_ready_time,
+            is_preload: door.consolidated.is_preload,
         })]
     }
 
@@ -41,15 +41,15 @@ impl ConsolidatedDataRule {
         let mut inspection_time_minutes: Option<i32> = None;
         let mut enqueued_time_minutes: Option<i32> = None;
 
-        if let (Some(dock_assignment), Some(trailer_docking)) = (door.dock_assignment.or(door.assigned_shipment.assignment_dttm), door.docking_time) {
+        if let (Some(dock_assignment), Some(trailer_docking)) = (door.consolidated.dock_assignment.or(door.assigned_shipment.assignment_dttm), door.consolidated.docking_time) {
             docking_time_minutes = Some(ConsolidatedDataRule::calculate_duration_minutes(dock_assignment, trailer_docking));
         }
 
-        if let (Some(trailer_docking), Some(started_shipment)) = (door.docking_time.or(door.last_dock_ready_time), door.shipment_started_dttm) {
+        if let (Some(trailer_docking), Some(started_shipment)) = (door.consolidated.docking_time.or(door.consolidated.last_dock_ready_time), door.consolidated.shipment_started_dttm) {
             inspection_time_minutes = Some(ConsolidatedDataRule::calculate_duration_minutes(trailer_docking, started_shipment));
         }
 
-        if let (Some(started_shipment), lgv_start_loading) = (door.shipment_started_dttm, event.base_event.timestamp) {
+        if let (Some(started_shipment), lgv_start_loading) = (door.consolidated.shipment_started_dttm, event.base_event.timestamp) {
             enqueued_time_minutes = Some(ConsolidatedDataRule::calculate_duration_minutes(started_shipment, lgv_start_loading));
         }
         (docking_time_minutes, inspection_time_minutes, enqueued_time_minutes)
