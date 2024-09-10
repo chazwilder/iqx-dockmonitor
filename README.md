@@ -6,12 +6,22 @@ The IQX Dock Monitor empowers your shipping operations with real-time visibility
 
 **Benefits:**
 
-* **Minimize Delays:** Proactive alerts enable swift responses to bottlenecks, reducing costly downtime.
-* **Enhance Throughput:** Real-time tracking and analytics optimize resource allocation, maximizing shipment volume.
-* **Reduce Costs:** Streamlined operations and data-driven decisions minimize waste and improve resource utilization.
-* **Data-Driven Decisions:** Aggregated analytics provide a comprehensive view for informed strategic planning.
-* **Future-Proof Technology:** Built on Rust, ensuring robustness, performance, and adaptability to evolving needs.
-* **Legacy Integration:** Bridges the gap between legacy and modern systems, unlocking a holistic operational view.
+### For Management
+- Minimize delays and reduce costs
+- Enhance throughput and optimize resource allocation
+- Enable data-driven strategic planning
+- Future-proof operations with adaptable technology
+
+### For Operators
+- Reduce manual interventions with proactive alerts
+- Improve efficiency in daily tasks
+- Enhance visibility across all dock activities
+- Better manage maintenance and repairs
+- Make data-driven decisions
+- Improve communication and collaboration
+- Reduce stress and increase confidence in decision-making
+- Facilitate training and onboarding of new team members
+- Track and improve personal and team performance
 
 **Features:**
 
@@ -22,6 +32,12 @@ The IQX Dock Monitor empowers your shipping operations with real-time visibility
 * **Seamless Integration:** Connects with SQL Server, MongoDB, and RabbitMQ for a unified data ecosystem.
 
 **Ideal for warehouse managers, operations teams, and IT professionals seeking to optimize shipping performance.**
+
+## Technology Stack
+
+- Backend: Rust
+- Databases: SQL Server, MongoDB
+- Message Broker: RabbitMQ
 
 ## Getting Started
 
@@ -119,6 +135,8 @@ The IQX Dock Monitor's modular design allows for easy extension and customizatio
 ## Consolidate Data Results
 ![Data Consolidated](assets/ConsolidatedData.png)
 
+## Data Analytics
+![Data Consolidated](assets/charts.png)
 
 ## Acknowledgments
 
