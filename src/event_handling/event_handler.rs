@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
-use chrono::Local;
+use chrono::{Local, Utc};
 use log::{info, error, debug};
 use crate::models::{DockDoorEvent, DbInsert, DockDoor};
 use crate::analysis::{AnalysisResult, context_analyzer, ContextAnalyzer};
@@ -271,6 +271,7 @@ impl EventHandler {
                     shipment_id: shipment_id.unwrap_or_default(),
                     suspended_at: Local::now().naive_local(),
                     user,
+                    added_to_queue: Utc::now().naive_utc(),
                 });
             },
             context_analyzer::AlertType::TrailerDocked { door_name, timestamp, success: true, .. } => {
@@ -278,6 +279,7 @@ impl EventHandler {
                     plant_id: door.plant_id.clone(),
                     door_name,
                     docked_at: timestamp,
+                    added_to_queue: Utc::now().naive_utc(),
                 });
             },
             context_analyzer::AlertType::ShipmentStartedLoadNotReady { door_name, shipment_id, .. } => {
@@ -286,6 +288,7 @@ impl EventHandler {
                     door_name,
                     shipment_id,
                     started_at: Local::now().naive_local(),
+                    added_to_queue: Utc::now().naive_utc(),
                 });
             },
             context_analyzer::AlertType::DockReady { door_name, timestamp, .. } => {
@@ -293,6 +296,7 @@ impl EventHandler {
                     plant_id: door.plant_id.clone(),
                     door_name,
                     docked_at: timestamp,
+                    added_to_queue: Utc::now().naive_utc(),
                 });
             },
             context_analyzer::AlertType::TrailerHostage { door_name, shipment_id, .. } => {
@@ -301,6 +305,7 @@ impl EventHandler {
                     door_name,
                     shipment_id,
                     detected_at: Local::now().naive_local(),
+                    added_to_queue: Utc::now().naive_utc(),
                 });
             },
             _ => {}

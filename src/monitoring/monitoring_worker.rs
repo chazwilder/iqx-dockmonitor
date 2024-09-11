@@ -54,6 +54,9 @@ impl MonitoringWorker {
             interval.tick().await;
             info!("Starting Monitoring Worker Loop...");
 
+            // Remove items older than 4 hours
+            self.queue.remove_old_items(Duration::hours(4));
+
             let queue_size = self.queue.len();
             info!("Current Monitoring Queue size: {}", queue_size);
 
@@ -80,16 +83,16 @@ impl MonitoringWorker {
     /// A boolean indicating whether the item should be kept in the queue
     async fn process_item(&self, item: MonitoringItem) -> bool {
         match item {
-            MonitoringItem::SuspendedShipment { plant_id, door_name, shipment_id, suspended_at, user } => {
+            MonitoringItem::SuspendedShipment { plant_id, door_name, shipment_id, suspended_at, user, .. } => {
                 self.process_suspended_shipment(plant_id, door_name, shipment_id, suspended_at, user).await
             },
-            MonitoringItem::TrailerDockedNotStarted { plant_id, door_name, docked_at } => {
+            MonitoringItem::TrailerDockedNotStarted { plant_id, door_name, docked_at, .. } => {
                 self.process_trailer_docked_not_started(plant_id, door_name, docked_at).await
             },
-            MonitoringItem::ShipmentStartedLoadNotReady { plant_id, door_name, shipment_id, started_at } => {
+            MonitoringItem::ShipmentStartedLoadNotReady { plant_id, door_name, shipment_id, started_at, .. } => {
                 self.process_shipment_started_load_not_ready(plant_id, door_name, shipment_id, started_at).await
             },
-            MonitoringItem::TrailerHostage { plant_id, door_name, shipment_id, detected_at } => {
+            MonitoringItem::TrailerHostage { plant_id, door_name, shipment_id, detected_at, .. } => {
                 self.process_trailer_hostage(plant_id, door_name, shipment_id, detected_at).await
             },
         }
@@ -309,5 +312,70 @@ impl MonitoringWorker {
         let intervals_passed = duration.num_seconds() / repeat_interval.num_seconds();
         let last_alert_time = intervals_passed * repeat_interval.num_seconds();
         duration.num_seconds() - last_alert_time < 60 // Alert within the first minute after an interval
+    }
+}
+
+impl MonitoringWorker {
+    // ... [Previous methods remain unchanged]
+
+    /// Adds a new item to the monitoring queue
+    ///
+    /// # Arguments
+    ///
+    /// * `item` - The `MonitoringItem` to be added to the queue
+    pub fn add_to_queue(&self, item: MonitoringItem) {
+        self.queue.add(item);
+    }
+
+    /// Removes an item from the monitoring queue
+    ///
+    /// # Arguments
+    ///
+    /// * `item` - The `MonitoringItem` to be removed from the queue
+    ///
+    /// # Returns
+    ///
+    /// `true` if the item was present in the queue and removed, `false` otherwise
+    pub fn remove_from_queue(&self, item: &MonitoringItem) -> bool {
+        self.queue.remove(item)
+    }
+
+    /// Checks if an item is present in the monitoring queue
+    ///
+    /// # Arguments
+    ///
+    /// * `item` - The `MonitoringItem` to check for in the queue
+    ///
+    /// # Returns
+    ///
+    /// `true` if the item is present in the queue, `false` otherwise
+    pub fn is_in_queue(&self, item: &MonitoringItem) -> bool {
+        self.queue.contains(item)
+    }
+
+    /// Returns the current size of the monitoring queue
+    ///
+    /// # Returns
+    ///
+    /// The number of items currently in the queue
+    pub fn queue_size(&self) -> usize {
+        self.queue.len()
+    }
+
+    /// Clears all items from the monitoring queue
+    pub fn clear_queue(&self) {
+        self.queue.clear();
+    }
+
+    /// Manually triggers the removal of old items from the queue
+    ///
+    /// This method can be called to remove items that have been in the queue
+    /// for longer than the specified duration, outside of the regular monitoring cycle.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_age` - The maximum duration an item can remain in the queue before being removed
+    pub fn remove_old_items(&self, max_age: Duration) {
+        self.queue.remove_old_items(max_age);
     }
 }
