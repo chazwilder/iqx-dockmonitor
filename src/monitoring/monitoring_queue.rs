@@ -1,6 +1,6 @@
 use dashmap::DashSet;
 use std::sync::Arc;
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, Duration, Utc};
 use serde::{Serialize, Deserialize};
 
 /// Represents different types of items that can be monitored in the dock monitoring system.
@@ -17,7 +17,9 @@ pub enum MonitoringItem {
         /// The timestamp when the shipment was suspended.
         suspended_at: NaiveDateTime,
         /// The user who suspended the shipment.
-        user: String
+        user: String,
+        /// The timestamp when this item was added to the monitoring queue.
+        added_to_queue: NaiveDateTime,
     },
     /// Represents a trailer that has docked but loading hasn't started.
     TrailerDockedNotStarted {
@@ -27,6 +29,8 @@ pub enum MonitoringItem {
         door_name: String,
         /// The timestamp when the trailer docked.
         docked_at: NaiveDateTime,
+        /// The timestamp when this item was added to the monitoring queue.
+        added_to_queue: NaiveDateTime,
     },
     /// Represents a shipment that has started loading but the dock is not ready.
     ShipmentStartedLoadNotReady {
@@ -38,6 +42,8 @@ pub enum MonitoringItem {
         shipment_id: String,
         /// The timestamp when the shipment started loading.
         started_at: NaiveDateTime,
+        /// The timestamp when this item was added to the monitoring queue.
+        added_to_queue: NaiveDateTime,
     },
     /// Represents a potential trailer hostage situation.
     TrailerHostage {
@@ -49,6 +55,8 @@ pub enum MonitoringItem {
         shipment_id: Option<String>,
         /// The timestamp when the potential hostage situation was first detected.
         detected_at: NaiveDateTime,
+        /// The timestamp when this item was added to the monitoring queue.
+        added_to_queue: NaiveDateTime,
     },
 }
 
@@ -73,12 +81,21 @@ impl MonitoringQueue {
     /// Adds a new item to the monitoring queue.
     ///
     /// If the item already exists in the queue (based on its hash and equality),
-    /// it will not be added again.
+    /// it will not be added again. The `added_to_queue` timestamp is set to the current time.
     ///
     /// # Arguments
     ///
     /// * `item` - The `MonitoringItem` to be added to the queue.
-    pub fn add(&self, item: MonitoringItem) {
+    pub fn add(&self, mut item: MonitoringItem) {
+        let now = Utc::now().naive_utc();
+        match item {
+            MonitoringItem::SuspendedShipment { ref mut added_to_queue, .. } |
+            MonitoringItem::TrailerDockedNotStarted { ref mut added_to_queue, .. } |
+            MonitoringItem::ShipmentStartedLoadNotReady { ref mut added_to_queue, .. } |
+            MonitoringItem::TrailerHostage { ref mut added_to_queue, .. } => {
+                *added_to_queue = now;
+            }
+        }
         self.queue.insert(item);
     }
 
@@ -138,6 +155,29 @@ impl MonitoringQueue {
     /// An iterator that yields references to `MonitoringItem`s.
     pub fn iter(&self) -> impl Iterator<Item = dashmap::setref::multiple::RefMulti<'_, MonitoringItem>> {
         self.queue.iter()
+    }
+
+    /// Removes items from the queue that have been present for longer than the specified duration.
+    ///
+    /// This method is used to prevent items from staying in the queue indefinitely,
+    /// which helps avoid infinite alerts.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_age` - The maximum duration an item can remain in the queue before being removed.
+    pub fn remove_old_items(&self, max_age: Duration) {
+        let now = Utc::now().naive_utc();
+        self.queue.retain(|item| {
+            let age = match item {
+                MonitoringItem::SuspendedShipment { added_to_queue, .. } |
+                MonitoringItem::TrailerDockedNotStarted { added_to_queue, .. } |
+                MonitoringItem::ShipmentStartedLoadNotReady { added_to_queue, .. } |
+                MonitoringItem::TrailerHostage { added_to_queue, .. } => {
+                    now.signed_duration_since(*added_to_queue)
+                }
+            };
+            age <= max_age
+        });
     }
 }
 
