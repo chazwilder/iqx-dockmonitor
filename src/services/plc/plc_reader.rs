@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use tokio::task;
 use std::time::Duration;
 use crate::errors::DockManagerError;
@@ -86,7 +87,7 @@ impl PlcReader {
     /// let value = reader.read_tag(tag).await?;
     /// println!("Read value: {}", value);
     /// ```
-    pub async fn read_tag(&self, tag: plctag::RawTag) -> Result<u8, DockManagerError> {
+    pub async fn read_tag(&self, tag: Arc<plctag::RawTag>) -> Result<u8, DockManagerError> {
         let timeout = Duration::from_millis(self.timeout_ms);
         let timeout_ms = self.timeout_ms;
 
