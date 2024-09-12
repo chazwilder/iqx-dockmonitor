@@ -143,7 +143,7 @@ impl TrailerDockingRule {
         let mut reasons = Vec::new();
 
         if !self.check_loading_status(dock_door) {
-            reasons.push(format!("Invalid loading status: {:?}", dock_door.loading_status));
+            reasons.push(format!("Invalid loading status: {:?}", dock_door.loading_status.loading_status));
         }
         if !self.check_wms_status(dock_door) {
             reasons.push(format!("Invalid WMS shipment status: {:?}", dock_door.loading_status.wms_shipment_status));
