@@ -1,13 +1,15 @@
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use log::{info, error};
 use futures::future::join_all;
 use crate::models::PlcVal;
 use crate::errors::{DockManagerError, DockManagerResult};
 use crate::config::Settings;
+use tokio::time::timeout;
 use crate::services::plc::plc_tag_factory::PlcTagFactory;
 use crate::services::plc::plc_reader::PlcReader;
 
+// noinspection all
 /// # PlcService
 ///
 /// The `PlcService` struct is responsible for managing communications with Programmable Logic Controllers (PLCs)
@@ -38,6 +40,7 @@ pub struct PlcService {
 }
 
 impl PlcService {
+    // noinspection all
     /// Creates a new instance of `PlcService`.
     ///
     /// This method initializes a new `PlcService` with default configurations:
@@ -75,36 +78,35 @@ impl PlcService {
     pub async fn poll_sensors(&self, settings: &Settings) -> DockManagerResult<Vec<PlcVal>> {
         let start = Instant::now();
         let mut all_plc_values = Vec::new();
+        let _ = self.max_retries.clone();
 
-        for (plant_index, plant) in settings.plants.iter().enumerate() {
+        for plant in &settings.plants {
             let plant_start = Instant::now();
             let plant_id = plant.plant_id.clone();
 
-            info!("Starting sensor polling for plant {} with {} doors", plant_index, plant.dock_doors.dock_door_config.len());
+            info!("Starting sensor polling for plant {} with {} doors", plant_id, plant.dock_doors.dock_door_config.len());
 
             let sensor_futures: Vec<_> = plant.dock_doors.dock_door_config.iter()
                 .flat_map(|door| {
                     plant.dock_doors.dock_plc_tags.iter().map({
-                        let plant_pid = plant_id.clone();
+                        let plant = plant_id.clone();
                         move |sensor| {
                             let reader = Arc::clone(&self.reader);
-                            let max_retries = self.max_retries;
-                            let plant_id = plant_pid.clone();
+                            let plant_id = plant.clone();
                             let door_name = door.dock_name.clone();
                             let door_ip = door.dock_ip.clone();
                             let sensor_name = sensor.tag_name.clone();
                             let address = sensor.address.clone();
 
                             tokio::spawn(async move {
-                                Self::read_sensor(
+                                timeout(Duration::from_secs(1), Self::read_sensor(
                                     reader,
-                                    max_retries,
                                     plant_id,
                                     door_name,
                                     door_ip,
                                     sensor_name,
                                     address,
-                                ).await
+                                )).await
                             })
                         }
                     })
@@ -112,9 +114,17 @@ impl PlcService {
                 .collect();
 
             let results = join_all(sensor_futures).await;
-            all_plc_values.extend(results.into_iter().filter_map(|r| r.ok().and_then(|r| r.ok())));
 
-            info!("Completed sensor polling for plant {} in {:?}", plant_index, plant_start.elapsed());
+            for result in results {
+                match result {
+                    Ok(Ok(Ok(plc_val))) => all_plc_values.push(plc_val),
+                    Ok(Ok(Err(e))) => info!("Sensor read error: {:?}", e),
+                    Ok(Err(_)) => info!("Sensor read timed out"),
+                    Err(e) => error!("Task join error: {:?}", e),
+                }
+            }
+
+            info!("Completed sensor polling for plant {} in {:?}", plant_id, plant_start.elapsed());
         }
 
         info!("Completed polling all sensors in {:?}", start.elapsed());
@@ -143,28 +153,16 @@ impl PlcService {
     /// * `Err(DockManagerError)`: If the sensor read fails after all retries
     async fn read_sensor(
         reader: Arc<PlcReader>,
-        max_retries: u32,
         plant_id: String,
         door_name: String,
         door_ip: String,
         sensor: String,
         plc_tag_address: String
     ) -> DockManagerResult<PlcVal> {
-        for attempt in 0..max_retries {
-            let tag = PlcTagFactory::create_tag(&door_ip, &plc_tag_address, reader.timeout_ms)?;
-            match reader.read_tag(tag).await {
-                Ok(value) => {
-                    return Ok(PlcVal::new(&plant_id, &door_name, &door_ip, &sensor, value));
-                }
-                Err(e) => {
-                    error!("Error reading sensor {} for door {} on attempt {}/{}: {:?}",
-                           sensor, door_name, attempt + 1, max_retries, e);
-                    if attempt < max_retries - 1 {
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    }
-                }
-            }
+        let tag = PlcTagFactory::create_tag(&door_ip, &plc_tag_address, 1000)?; // Set timeout to 1000ms
+        match reader.read_tag(tag).await {
+            Ok(value) => Ok(PlcVal::new(&plant_id, &door_name, &door_ip, &sensor, value)),
+            Err(e) => Err(DockManagerError::PlcError(format!("Failed to read sensor {} for door {}: {:?}", sensor, door_name, e)))
         }
-        Err(DockManagerError::PlcError(format!("Failed to read sensor {} after {} attempts", sensor, max_retries)))
     }
 }
