@@ -70,7 +70,7 @@ pub struct DatabaseService {
     /// A map of database clients for different plants, keyed by plant ID
     plant_clients: HashMap<String, DatabaseClient>,
     /// The application settings containing database configurations
-    settings: Arc<Settings>,
+    settings: Settings,
 }
 
 impl DatabaseService {
@@ -87,7 +87,7 @@ impl DatabaseService {
     ///
     /// * `Ok(Self)`: The initialized `DatabaseService` instance
     /// * `Err(DockManagerError)`: If there's an error establishing any of the database connections
-    pub async fn new(settings: Arc<Settings>) -> DockManagerResult<Self> {
+    pub async fn new(settings: Settings) -> DockManagerResult<Self> {
         let local_client = DatabaseClient::new(
             &settings.database.connection_string().expose_secret(),
             &settings.database.app_name,

@@ -15,7 +15,7 @@ pub struct MonitoringWorker {
     queue: Arc<MonitoringQueue>,
     door_repository: Arc<DoorStateRepository>,
     alert_manager: Arc<AlertManager>,
-    settings: Arc<Settings>,
+    settings: Settings,
 }
 
 impl MonitoringWorker {
@@ -35,7 +35,7 @@ impl MonitoringWorker {
         queue: Arc<MonitoringQueue>,
         door_repository: Arc<DoorStateRepository>,
         alert_manager: Arc<AlertManager>,
-        settings: Arc<Settings>,
+        settings: Settings,
     ) -> Self {
         Self {
             queue,

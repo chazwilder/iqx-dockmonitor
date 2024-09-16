@@ -25,7 +25,7 @@ pub struct AppContext {
 }
 
 pub async fn initialize() -> Result<AppContext> {
-    let settings = Arc::new(Settings::new()?);
+    let settings = Settings::new()?;
 
     let plc_service = PlcService::new();
     let alert_config = AlertConfig {
@@ -48,7 +48,7 @@ pub async fn initialize() -> Result<AppContext> {
         webhook_url
     ));
 
-    let db_service = DatabaseService::new(Arc::clone(&settings))
+    let db_service = DatabaseService::new(settings.clone())
         .await
         .map_err(|e| anyhow::anyhow!("Failed to create DatabaseService: {}", e))?;
 
@@ -74,7 +74,7 @@ pub async fn initialize() -> Result<AppContext> {
     );
 
     let dock_door_controller = Arc::new(DockDoorController::new(
-        (*settings).clone(),
+        settings.clone(),
         plc_service.clone(),
         Arc::new(state_manager.clone()),
         Arc::new(event_handler.clone()),
@@ -85,13 +85,13 @@ pub async fn initialize() -> Result<AppContext> {
         Arc::clone(&monitoring_queue),
         state_manager.get_door_repository(),
         Arc::clone(&alert_manager),
-        Arc::clone(&settings),
+        settings.clone(),
     );
 
 
 
     Ok(AppContext {
-        settings,
+        settings: Arc::new(settings),
         plc_service,
         alert_manager,
         db_service,
