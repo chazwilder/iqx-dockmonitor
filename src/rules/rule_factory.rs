@@ -5,6 +5,7 @@ use crate::analysis::context_analyzer::AnalysisRule;
 use crate::rules::{suspended_door_rule::{SuspendedDoorRule}, long_loading_start_rule::{LongLoadingStartRule}, trailer_hostage_rule::{TrailerHostageRule}, shipment_started_load_not_ready_rule::{ShipmentStartedLoadNotReadyRule}, trailer_pattern_rule::{TrailerPatternRule}, trailer_docking_rule::{TrailerDockingRule}, manual_intervention_rule::{ManualInterventionRule}, NewShipmentPreviousTrailerPresentRule, TrailerUndockingRule};
 use crate::rules::consolidated_data_rule::ConsolidatedDataRule;
 use crate::rules::dock_ready_rule::DockReadyRule;
+use crate::rules::trailer_at_door_db::{TrailerAtDoorUpdateRule, TrailerAtDoorUpdateRuleConfig};
 use crate::rules::wms_events_rule::WmsEventsRule;
 
 /// A factory for creating analysis rules based on their configuration
@@ -42,6 +43,8 @@ impl RuleFactory {
             "DockReadyRule" => Ok(Arc::new(DockReadyRule)),
             "ConsolidatedDataRule" => Ok(Arc::new(ConsolidatedDataRule::new())),
             "WmsEventsRule" => Ok(Arc::new(WmsEventsRule)),
+            "TrailerAtDoorUpdateRule" => self.create_trailer_at_door_update_rule(config),
+
             _ => Err(anyhow::anyhow!("Unknown rule type: {}", rule_type)),
         }
     }
@@ -88,5 +91,10 @@ impl RuleFactory {
 
     fn create_trailer_undocking_rule(&self, config: &Value) -> Result<Arc<dyn AnalysisRule>> {
         Ok(Arc::new(TrailerUndockingRule::new(config.clone())))
+    }
+
+    fn create_trailer_at_door_update_rule(&self, config: &Value) -> Result<Arc<dyn AnalysisRule>> {
+        let rule_config: TrailerAtDoorUpdateRuleConfig = serde_json::from_value(config.clone())?;
+        Ok(Arc::new(TrailerAtDoorUpdateRule::new(rule_config)))
     }
 }

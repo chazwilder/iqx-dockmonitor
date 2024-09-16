@@ -28,6 +28,7 @@ rayon = "1.10.0"
 log = "0.4.22"
 log4rs = {version = "1.3.0", features = ["rolling_file_appender","serde", "chrono","file_appender", "fixed_window_roller", "console_appender", "gzip", "background_rotation"]}
 tracing = "0.1.40"
+once_cell = "1.19.0"
 
 [profile.release]
 debug = true

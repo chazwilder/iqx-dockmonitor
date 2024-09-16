@@ -66,7 +66,7 @@ impl DatabaseConnectionFactory {
 #[derive(Clone)]
 pub struct DatabaseService {
     /// The database client for the local database
-    local_client: DatabaseClient,
+    pub local_client: DatabaseClient,
     /// A map of database clients for different plants, keyed by plant ID
     plant_clients: HashMap<String, DatabaseClient>,
     /// The application settings containing database configurations

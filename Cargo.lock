@@ -1482,6 +1482,7 @@ dependencies = [
  "lapin",
  "log",
  "log4rs",
+ "once_cell",
  "parking_lot",
  "plctag",
  "rayon",
