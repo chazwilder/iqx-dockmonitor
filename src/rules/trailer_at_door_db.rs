@@ -40,17 +40,17 @@ impl TrailerAtDoorUpdateRule {
     async fn update_trailer_at_door(door_name: &str, trailer_at_door: u8) -> Result<()> {
         let query = r#"
         UPDATE [NETWORK].[RCH].[DOCK_DOOR_PLCS]
-        SET TRAILER_AT_DOOR = ?,
+        SET TRAILER_AT_DOOR = @P1,
             UPDATE_DTTM = GETDATE()
-        WHERE DOOR_NAME = ?
+        WHERE DOOR_NAME = @P2
     "#;
 
-        let db_service = Self::get_db_service().await;
+        let db_service = Self::get_db_service().await?;
         let db_service = db_service.lock().await;
 
         sqlx_oldapi::query(query)
-            .bind(trailer_at_door as i32)
-            .bind(door_name.to_string())
+            .bind(trailer_at_door as i32)  // @P1
+            .bind(door_name)               // @P2
             .execute(&*db_service.local_client.pool)
             .await?;
 
