@@ -159,10 +159,17 @@ impl PlcService {
         sensor: String,
         plc_tag_address: String
     ) -> DockManagerResult<PlcVal> {
-        let tag = PlcTagFactory::create_tag(&door_ip, &plc_tag_address, 1000)?; // Set timeout to 1000ms
-        match reader.read_tag(tag).await {
-            Ok(value) => Ok(PlcVal::new(&plant_id, &door_name, &door_ip, &sensor, value)),
-            Err(e) => Err(DockManagerError::PlcError(format!("Failed to read sensor {} for door {}: {:?}", sensor, door_name, e)))
-        }
+        let tag = PlcTagFactory::create_tag(&door_ip, &plc_tag_address, 1000)
+            .map_err(|e| DockManagerError::PlcError(format!(
+                "Failed to create PLC tag for sensor '{}' (address: {}) on door '{}' in plant '{}': {:?}",
+                sensor, plc_tag_address, door_name, plant_id, e
+            )))?;
+
+        reader.read_tag(tag).await
+            .map(|value| PlcVal::new(&plant_id, &door_name, &door_ip, &sensor, value))
+            .map_err(|e| DockManagerError::PlcError(format!(
+                "Failed to read sensor '{}' (address: {}) on door '{}' in plant '{}': {:?}",
+                sensor, plc_tag_address, door_name, plant_id, e
+            )))
     }
 }
