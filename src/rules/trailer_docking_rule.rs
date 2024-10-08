@@ -5,6 +5,8 @@
 //! It provides detailed feedback on why a docking operation might fail, which is
 //! crucial for maintenance and troubleshooting.
 
+use std::thread;
+use std::time::Duration;
 use crate::models::{DockDoor, DockDoorEvent, TrailerState};
 use crate::analysis::context_analyzer::{AnalysisRule, AnalysisResult, LogEntry, AlertType};
 use chrono::Local;
@@ -64,6 +66,7 @@ impl TrailerDockingRule {
     ///
     /// A boolean indicating whether the docking is successful
     fn is_docking_successful(&self, dock_door: &DockDoor) -> bool {
+        thread::sleep(Duration::from_secs(5));
         let loading_status_condition = self.check_loading_status(dock_door);
         let wms_status_condition = self.check_wms_status(dock_door);
         let shipment_condition = dock_door.assigned_shipment.current_shipment.is_some();

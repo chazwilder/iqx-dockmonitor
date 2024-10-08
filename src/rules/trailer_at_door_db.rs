@@ -45,12 +45,12 @@ impl TrailerAtDoorUpdateRule {
         WHERE DOOR_NAME = @P2
     "#;
 
-        let db_service = Self::get_db_service().await?;
+        let db_service = Self::get_db_service().await;
         let db_service = db_service.lock().await;
 
         sqlx_oldapi::query(query)
-            .bind(trailer_at_door as i32)  // @P1
-            .bind(door_name)               // @P2
+            .bind(trailer_at_door as i32)
+            .bind(door_name)
             .execute(&*db_service.local_client.pool)
             .await?;
 
