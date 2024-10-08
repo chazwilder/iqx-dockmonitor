@@ -73,29 +73,29 @@ async fn run() -> Result<()> {
             info!("Starting rack space utilization check...");
             for plant in &rack_space_context.settings.plants {
                 let plant_id = &plant.plant_id;
-                match rack_space_context.db_service.fetch_empty_rack_count(plant_id).await {
-                    Ok(count) => {
-                        if count < 9 {
+                match rack_space_context.db_service.fetch_rack_space_counts(plant_id).await {
+                    Ok((total_count, top_count)) => {
+                        if total_count < 9 {
                             let alert = Alert::new(AlertType::RackSpace, "RackSpace".to_string())
                                 .add_info("plant".to_string(), plant_id.clone())
-                                .add_info("empty_spaces".to_string(), count.to_string())
-                                .build();
-                            if let Err(e) = rack_space_context.alert_manager.handle_alert(alert).await {
-                                error!("Failed to send rack space alert: {:?}", e);
-                            }
-                        } else {
-                            let alert = Alert::new(AlertType::RackSpace, "RackSpace".to_string())
-                                .add_info("info".to_string(), "true".to_string())
-                                .add_info("plant".to_string(), plant_id.clone())
-                                .add_info("empty_spaces".to_string(), count.to_string())
+                                .add_info("empty_spaces".to_string(), total_count.to_string())
                                 .build();
                             if let Err(e) = rack_space_context.alert_manager.handle_alert(alert).await {
                                 error!("Failed to send rack space alert: {:?}", e);
                             }
                         }
+                        if top_count <= 4 {
+                            let alert = Alert::new(AlertType::LowTopRackSpace, "LowTopRackSpace".to_string())
+                                .add_info("plant".to_string(), plant_id.clone())
+                                .add_info("top_empty_spaces".to_string(), top_count.to_string())
+                                .build();
+                            if let Err(e) = rack_space_context.alert_manager.handle_alert(alert).await {
+                                error!("Failed to send low top rack space alert: {:?}", e);
+                            }
+                        }
                     },
                     Err(e) => {
-                        error!("Error fetching rack space count for plant {}: {:?}", plant_id, e);
+                        error!("Error fetching rack space counts for plant {}: {:?}", plant_id, e);
                     }
                 }
             }

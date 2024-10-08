@@ -180,17 +180,17 @@ impl DatabaseService {
         repo.fetch_wms_events(&query, shipment_id, dock_name).await
     }
 
-    pub async fn fetch_empty_rack_count(&self, plant_id: &str) -> DockManagerResult<i64> {
+    pub async fn fetch_rack_space_counts(&self, plant_id: &str) -> DockManagerResult<(i64, i64)> {
         let client = self.plant_clients.get(plant_id)
             .ok_or_else(|| DockManagerError::ConfigError(format!("Plant {} not found", plant_id)))?;
 
         let query = &self.settings.queries.wms_rack_space;
 
-        let result: (i64,) = sqlx_oldapi::query_as(query)
+        let result: (i64, i64) = sqlx_oldapi::query_as(query)
             .fetch_one(&*client.pool)
             .await
             .map_err(DockManagerError::DatabaseError)?;
 
-        Ok(result.0)
+        Ok(result)
     }
 }

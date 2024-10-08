@@ -41,7 +41,8 @@ pub enum AlertType {
     TrailerDocked,
     DockReady,
     TrailerUndocked,
-    RackSpace
+    RackSpace,
+    LowTopRackSpace,
 }
 
 /// Represents an alert with all its associated information
@@ -147,6 +148,11 @@ impl fmt::Display for Alert {
                     format!("✅✅ RACK SPACE GOOD!: Plant {}", plant)
                 }
 
+            },
+            AlertType::LowTopRackSpace => {
+                let plant = self.additional_info.get("plant").map_or("Unknown", |s| s);
+                let top_empty_spaces = self.additional_info.get("top_empty_spaces").map_or("Unknown", |s| s);
+                format!("🚨 LOW SPACE ON TOP RACK ALERT: Plant {} has only {} empty top rack spaces", plant, top_empty_spaces)
             },
         };
 
@@ -270,6 +276,10 @@ impl AlertManager {
             AlertType::TrailerUndocked => (
                 format!("trailer_undocked_{}", alert.door_name),
                 self.settings.trailer_undocked.repeat_interval,
+            ),
+            AlertType::LowTopRackSpace => (
+                format!("low_top_rack_space_{}", alert.additional_info.get("plant").unwrap_or(&"unknown".to_string())),
+                DEFAULT_REPEAT_INTERVAL,
             ),
             _ => (
                 format!("default_{}", alert.door_name),
