@@ -150,9 +150,14 @@ impl fmt::Display for Alert {
 
             },
             AlertType::LowTopRackSpace => {
+                let send_info = self.additional_info.get("info");
                 let plant = self.additional_info.get("plant").map_or("Unknown", |s| s);
                 let top_empty_spaces = self.additional_info.get("top_empty_spaces").map_or("Unknown", |s| s);
-                format!("🚨 LOW SPACE ON TOP RACK ALERT: Plant {} has only {} empty top rack spaces", plant, top_empty_spaces)
+                if send_info.is_none() {
+                    format!("🚨 LOW SPACE ON TOP RACK ALERT: Plant {} has only {} empty top rack spaces", plant, top_empty_spaces)
+                } else {
+                    format!("✅✅ TOP RACK SPACE GOOD: Plant {} has {} empty top rack spaces", plant, top_empty_spaces)
+                }
             },
         };
 

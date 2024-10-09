@@ -26,9 +26,9 @@ pub fn local_now() -> NaiveDateTime {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[sqlx(rename_all = "SCREAMING_SNAKE_CASE")]
 pub struct TrailerPatternData {
-    pub id_shipment: i32,
+    pub id_shipment: i64,
     pub shipmentnumber: String,
-    pub id_delivery: i32,
+    pub id_delivery: i64,
     pub dock_door: String,
     pub load_pattern_position: i32,
     pub send_trl_ptrn_alert: i32,
