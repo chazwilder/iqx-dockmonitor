@@ -10,7 +10,7 @@ use secrecy::ExposeSecret;
 use tokio::sync::Mutex;
 use crate::config::Settings;
 use crate::errors::{DockManagerError, DockManagerResult};
-use crate::models::{DbInsert, WmsDoorStatus, WmsEvent};
+use crate::models::{DbInsert, TrailerPatternData, WmsDoorStatus, WmsEvent};
 use crate::models::consolidated_dock_event::ConsolidatedDockEvent;
 use crate::repositories::{DoorEventRepository, WmsStatusRepository, Repository};
 use crate::repositories::consolidated::ConsolidatedDockEventRepository;
@@ -192,5 +192,16 @@ impl DatabaseService {
             .map_err(DockManagerError::DatabaseError)?;
 
         Ok(result)
+    }
+
+    pub async fn fetch_trailer_pattern_data(&self) -> DockManagerResult<Vec<TrailerPatternData>> {
+        let client = self.local_client.clone();
+
+        let query = "SELECT DISTINCT ID_SHIPMENT, SHIPMENTNUMBER, ID_DELIVERY, DOCK_DOOR, LOAD_PATTERN_POSITION, SEND_TRL_PTRN_ALERT, EXPECTED_PALLET_COUNT FROM [RCH-E80-REP-DB].[SMART].[TRAILER_PATTERN_VIEW]";
+
+        sqlx_oldapi::query_as::<_, TrailerPatternData>(query)
+            .fetch_all(&*client.pool)
+            .await
+            .map_err(DockManagerError::DatabaseError)
     }
 }

@@ -169,7 +169,8 @@ pub struct Queries {
     pub wms_door_status: String,
     /// The SQL query to retrieve events related to shipments from the WMS
     pub wms_events: String,
-    pub wms_rack_space: String
+    pub wms_rack_space: String,
+    pub trailer_pattern: String,
 }
 
 /// Holds the configuration settings related to PLC (Programmable Logic Controller) communication
