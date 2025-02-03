@@ -220,15 +220,17 @@ impl AnalysisRule for TrailerDockingRule {
                     } else {
                         None
                     };
-
-                    results.push(AnalysisResult::Alert(AlertType::TrailerDocked {
-                        door_name: dock_door.dock_name.clone(),
-                        shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
-                        timestamp: e.timestamp,
-                        success: is_successful,
-                        failure_reason: failure_reason.clone(),
-                    }));
-
+					
+					if is_successful {
+						results.push(AnalysisResult::Alert(AlertType::TrailerDocked {
+							door_name: dock_door.dock_name.clone(),
+							shipment_id: dock_door.assigned_shipment.current_shipment.clone(),
+							timestamp: e.timestamp,
+							success: is_successful,
+							failure_reason: failure_reason.clone(),
+						}));
+					}
+					
                     let log_entry = LogEntry::DockingTime {
                         log_dttm: Local::now().naive_local(),
                         plant: dock_door.plant_id.clone(),
